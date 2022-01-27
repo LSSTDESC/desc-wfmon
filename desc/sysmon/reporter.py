@@ -8,26 +8,50 @@ import psutil
 import subprocess
 import os
 import time
+from threading import Thread
 
 def none():
+    """Function that always reurns none."""
     return None
 
-def reporter(fnam ='sysmon.csv', dt =10,  check =none, timeout =0, comargs=[]):
+class Notify:
+    """Class to notify reporter when to exit."""
+    def __init__(self, val =None):
+        self.value = val
+    def __call__(self):
+        return self.value
+    def set(self, val =None):
+        self.value = val
+
+def reporter(fnam ='sysmon.csv', dt =10,  check =none, timeout =0, subcom='', dbg=1, thr=False):
     """
     Report system parameters.
-    Output file is fnam.
-    One entry is added every dt seconds.
-    If comargs is not empty, then that command is run as a subprocess and polling
-    ceases when the process terminates.
-    continues until that process ends.
-    Polling also ceases when poll() is not None or
-    the time elapsed time exceeds nonzero timeout.
+    Arguments:
+         fnam - Output file name ['sysmon.csv'].
+           dt - Polling time interval in seconds [10].
+       subcom - If not empty, then subcom is run as a subprocess
+                and polling ceases when that process exits [''].
+        check - If not None polling ceases when check() returns anything
+                except None [None].
+      timeout - If nonzero, polling ceases after timeout seconds [0].
     """
     myname = 'sysmon.reporter'
-    version = '0.00.01'
-    print(f"{myname}: Starting reporter version {version}")
-    print(f"{myname}: Logging to {fnam}")
-    print(f"{myname}: Logging to {fnam}")
+    # Make sure the output directory exists.
+    dnam = os.path.dirname(fnam)
+    if len(dnam):
+        if not os.path.isdir(dnam):
+            if dbg > 0: print(f"{myname}: Creating output directory {dnam}")
+            os.makedirs(dnam)
+    # If this is a thread request, create and start the thread.
+    if thr:
+        if dbg > 0: print(f"{myname}: Starting thread.")
+        args=(fnam, dt, check, timeout, subcom, dbg, False)
+        t = Thread(target=reporter, args=args)
+        t.start()
+        return t
+    version = '0.00.02'
+    if dbg > 0: print(f"{myname}: Starting reporter version {version}")
+    if dbg > 0: print(f"{myname}: Logging to {fnam}")
     subproc = None
     # Specify which fields are to be recorded.
     # cpu_time = user + system + idle + ...
@@ -49,11 +73,15 @@ def reporter(fnam ='sysmon.csv', dt =10,  check =none, timeout =0, comargs=[]):
         needheader = False
     else:
         needheader = True
-    with open(fnam, "a") as csv_file:
+    try:
+        csv_file = open(fnam, "a")
+    except e:
+        print(f"{myname}: ERROR: {e}")
+    else:
+        if dbg > 2: print(f"{myname}: Reporting...")
         if needheader:
             print(hdrline, file=csv_file, flush=True)
             needheader = False
-        print('', file=csv_file, flush=True)
         cptlast = None
         diolast = None
         niolast = None
@@ -108,29 +136,39 @@ def reporter(fnam ='sysmon.csv', dt =10,  check =none, timeout =0, comargs=[]):
             print(line, file=csv_file, flush=True)
             npoll += 1
             status = none
-            if len(comargs):
+            if len(subcom):
                 # If we are give a subprocess command, make sure that we poll before
                 # the process starts and after it ends.
                 if subproc is None:
-                    subproc = subprocess.Popen(comargs)
+                    subproc = subprocess.Popen(subcom.split())
                 else:
                     if subproc.poll() is not None:
                         status = subproc.returncode
                         reason = f'subprocess terminated with status {subproc.returncode}'
                         break
-            checkval = check()
+            checkval = None if check is None else check()
+            if dbg > 2: print(f'{myname}: Check returns {checkval}')
             if checkval is not None:
                 reason = f'check returned {checkval}'
                 break
             if timeout > 0 and now - time0 > timeout:
                 reason = f'total time exceeded {timeout} sec'
                 break
+            if dbg > 1: print(f'{myname}: Sleeping...')
             time.sleep(10)
+    finally:
+        csv_file.close()
 
-    print(f"{myname}: Polling terminated because {reason}")
-    print(f"{myname}: Poll count is {npoll}")
+    if dbg > 0: print(f"{myname}: Polling terminated because {reason}")
+    if dbg > 0: print(f"{myname}: Poll count is {npoll}")
     return 0
 
 if __name__ == "__main__":
-    reporter(**argv)
+    myname = 'sysmon.reporter.py'
+    print(f"{myname}: {argv[2:]}")
+    if False:
+        report_prefix = sys.argv[1]
+        hostname = platform.node()
+        #csv_filename = report_prefix + "/" + hostname + "." + str(time.time()) + ".csv"
+        args = sys.argv[2:]
 
