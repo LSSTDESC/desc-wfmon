@@ -1,12 +1,12 @@
 # desc-wfmon
-Workflow monitor for DESC image processing
+Python-based workflow monitor for DESC image processing
 
 ## Installation
     > git clone https://github.com/LSSTDESC/desc-wfmon.git
     > cd desc-wfmon
     > pip install .
 
-## Using the package
+## Modules
 
 List tables and schema in ./monitoring.db:
 
