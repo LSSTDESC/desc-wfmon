@@ -8,5 +8,5 @@ setup(name='desc-wfmon',
       author='David Adams',
       author_email='dladams@bnl.gov',
       url='https://github.com/LSSTDESC/desc-wfmon',
-      packages=['desc/wfmon'],
+      packages=['desc/wfmon', 'desc/sysmon'],
      )
