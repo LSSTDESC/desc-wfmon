@@ -11,7 +11,7 @@ import time
 from threading import Thread
 
 def none():
-    """Function that always reurns none."""
+    """Function that always returns none."""
     return None
 
 class Notify:
@@ -23,7 +23,8 @@ class Notify:
     def set(self, val =None):
         self.value = val
 
-class Def:
+class Params:
+    """Class that holds the parameters for reporter."""
     fnam = 'sysmon.csv'
     dt = 10
     check = none
@@ -31,12 +32,32 @@ class Def:
     subcom = ''
     dbg = 1
     thr = False
+    def __init__(self):
+        """Set defaults."""
+        self.fnam = 'sysmon.csv'
+        self.dt = 10
+        self.check = none
+        self.timeout = 0
+        self.subcom = ''
+        self.dbg = 1
+        self.thr = False
+    def update(self, vals):
+        for key in vals:
+            val = vals[key]
+            if      key == 'fnam': self.fnam = val
+            elif      key == 'dt': self.dt = val
+            elif   key == 'check': self.check = val
+            elif key == 'timeout': self.timeout = val
+            elif  key == 'subcom': self.subcom = val
+            elif     key == 'dbg': self.dbg = val
+            elif     key == 'thr': self.thr = val
+            else: raise KeyError(f"Invalid reporter parameter name: {key}")
 
 
-def reporter(fnam =Def.fnam, dt =Def.dt,  check =Def.check, timeout =Def.timeout, subcom =Def.subcom, dbg=Def.dbg, thr=Def.thr):
+def reporter(fnam =Params.fnam, dt =Params.dt, check =Params.check, timeout =Params.timeout,
+             subcom =Params.subcom, dbg=Params.dbg, thr=Params.thr):
     """
     Report system parameters.
-    Arguments:
          fnam - Output file name ['sysmon.csv'].
            dt - Polling time interval in seconds [10].
        subcom - If not empty, then subcom is run as a subprocess
@@ -44,8 +65,18 @@ def reporter(fnam =Def.fnam, dt =Def.dt,  check =Def.check, timeout =Def.timeout
         check - If not None polling ceases when check() returns anything
                 except None [None].
       timeout - If nonzero, polling ceases after timeout seconds [0].
+          dbg - Lof message level.
+          thr - If true, reporter is run in a thread and this returns immediately.
     """
     myname = 'sysmon.reporter'
+    if dbg > 1:
+        print(f"     fnam: {fnam}")
+        print(f"       dt: {dt}")
+        print(f"   subcom: {subcom}")
+        print(f"    check: {check}")
+        print(f"  timeout: {timeout}")
+        print(f"      dbg: {dbg}")
+        print(f"      thr: {thr}")
     # Make sure the output directory exists.
     dnam = os.path.dirname(fnam)
     if len(dnam):
@@ -165,7 +196,7 @@ def reporter(fnam =Def.fnam, dt =Def.dt,  check =Def.check, timeout =Def.timeout
                 reason = f'total time exceeded {timeout} sec'
                 break
             if dbg > 1: print(f'{myname}: Sleeping...')
-            time.sleep(10)
+            time.sleep(dt)
     finally:
         csv_file.close()
 
@@ -176,12 +207,28 @@ def reporter(fnam =Def.fnam, dt =Def.dt,  check =Def.check, timeout =Def.timeout
 def reporter_from_string(scfg =''):
     myname = 'reporter_from_string'
 
-if __name__ == "__main__":
-    myname = 'sysmon.reporter.py'
-    print(f"{myname}: {argv[2:]}")
-    if False:
-        report_prefix = sys.argv[1]
-        hostname = platform.node()
-        #csv_filename = report_prefix + "/" + hostname + "." + str(time.time()) + ".csv"
-        args = sys.argv[2:]
+def main_reporter():
+    """
+    Main function wrapper for reporter.
+    First argument is the configuration to exec, e.g.
+      'fnam="syslog.csv";dt=5;timeout=3600'
+    Remaining argumens are the subcommand, e.g.
+      run-my-jobs arg1 arg2
+    The reporter will start logging and and continue until the command returns.
+    """
+    import sys
+    print('Running the desc-sysmon-reporter')
+    myname = 'main_reporter'
+    pars = Params()
+    cfg = sys.argv[1] if len(sys.argv) else ''
+    print(f"{myname}: Configuring with '{cfg}'")
+    glos = {}
+    vals = {}
+    if len(cfg): exec(cfg, glos, vals)
+    pars.update(vals)
+    if len(sys.argv) > 1: pars.subcom = " ".join(sys.argv[2:])
+    reporter(pars.fnam, pars.dt, pars.check, pars.timeout, 
+             pars.subcom, pars.dbg, pars.thr)
 
+#if __name__ == "__main__":
+#    main_reporter()
