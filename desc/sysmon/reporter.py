@@ -23,7 +23,17 @@ class Notify:
     def set(self, val =None):
         self.value = val
 
-def reporter(fnam ='sysmon.csv', dt =10,  check =none, timeout =0, subcom='', dbg=1, thr=False):
+class Def:
+    fnam = 'sysmon.csv'
+    dt = 10
+    check = none
+    timeout = 0
+    subcom = ''
+    dbg = 1
+    thr = False
+
+
+def reporter(fnam =Def.fnam, dt =Def.dt,  check =Def.check, timeout =Def.timeout, subcom =Def.subcom, dbg=Def.dbg, thr=Def.thr):
     """
     Report system parameters.
     Arguments:
@@ -162,6 +172,9 @@ def reporter(fnam ='sysmon.csv', dt =10,  check =none, timeout =0, subcom='', db
     if dbg > 0: print(f"{myname}: Polling terminated because {reason}")
     if dbg > 0: print(f"{myname}: Poll count is {npoll}")
     return 0
+
+def reporter_from_string(scfg =''):
+    myname = 'reporter_from_string'
 
 if __name__ == "__main__":
     myname = 'sysmon.reporter.py'
