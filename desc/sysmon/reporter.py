@@ -7,8 +7,10 @@ Script to collect system-level resource info indluding CPU, memory, disk and net
 import psutil
 import subprocess
 import os
+import sys
 import time
 from threading import Thread
+from desc.sysmon import __version__
 
 def none():
     """Function that always returns none."""
@@ -32,15 +34,17 @@ class Params:
     subcom = ''
     dbg = 1
     thr = False
+    log = ''
     def __init__(self):
         """Set defaults."""
-        self.fnam = 'sysmon.csv'
-        self.dt = 10
-        self.check = none
-        self.timeout = 0
-        self.subcom = ''
-        self.dbg = 1
-        self.thr = False
+        self.fnam = Params.fnam
+        self.dt = Params.dt
+        self.check = Params.check
+        self.timeout = Params.timeout
+        self.subcom = Params.subcom
+        self.dbg = Params.dbg
+        self.thr = Params.thr
+        self.log = Params.log
     def update(self, vals):
         for key in vals:
             val = vals[key]
@@ -51,11 +55,12 @@ class Params:
             elif  key == 'subcom': self.subcom = val
             elif     key == 'dbg': self.dbg = val
             elif     key == 'thr': self.thr = val
+            elif     key == 'log': self.log = val
             else: raise KeyError(f"Invalid reporter parameter name: {key}")
 
 
 def reporter(fnam =Params.fnam, dt =Params.dt, check =Params.check, timeout =Params.timeout,
-             subcom =Params.subcom, dbg=Params.dbg, thr=Params.thr):
+             subcom =Params.subcom, dbg=Params.dbg, thr=Params.thr, log=Params.log):
     """
     Report system parameters.
          fnam - Output file name ['sysmon.csv'].
@@ -67,32 +72,36 @@ def reporter(fnam =Params.fnam, dt =Params.dt, check =Params.check, timeout =Par
       timeout - If nonzero, polling ceases after timeout seconds [0].
           dbg - Lof message level.
           thr - If true, reporter is run in a thread and this returns immediately.
+          log - If non-blank, logging is to this file. Blank means stdout.
     """
     myname = 'sysmon.reporter'
+    fout = sys.stdout
+    if len(log):
+        fout = open(log, 'w')
     if dbg > 1:
-        print(f"     fnam: {fnam}")
-        print(f"       dt: {dt}")
-        print(f"   subcom: {subcom}")
-        print(f"    check: {check}")
-        print(f"  timeout: {timeout}")
-        print(f"      dbg: {dbg}")
-        print(f"      thr: {thr}")
+        print(f"{myname}:     fnam: {fnam}", file=fout)
+        print(f"{myname}:       dt: {dt}", file=fout)
+        print(f"{myname}:   subcom: {subcom}", file=fout)
+        print(f"{myname}:    check: {check}", file=fout)
+        print(f"{myname}:  timeout: {timeout}", file=fout)
+        print(f"{myname}:      dbg: {dbg}", file=fout)
+        print(f"{myname}:      thr: {thr}", file=fout)
+        print(f"{myname}:      log: {log}", file=fout)
     # Make sure the output directory exists.
     dnam = os.path.dirname(fnam)
     if len(dnam):
         if not os.path.isdir(dnam):
-            if dbg > 0: print(f"{myname}: Creating output directory {dnam}")
+            if dbg > 0: print(f"{myname}: Creating output directory {dnam}", file=fout)
             os.makedirs(dnam)
     # If this is a thread request, create and start the thread.
     if thr:
-        if dbg > 0: print(f"{myname}: Starting thread.")
+        if dbg > 0: print(f"{myname}: Starting thread.", file=fout)
         args=(fnam, dt, check, timeout, subcom, dbg, False)
         t = Thread(target=reporter, args=args)
         t.start()
         return t
-    version = '0.00.02'
-    if dbg > 0: print(f"{myname}: Starting reporter version {version}")
-    if dbg > 0: print(f"{myname}: Logging to {fnam}")
+    if dbg > 0: print(f"{myname}: Starting reporter version {__version__}", file=fout)
+    if dbg > 0: print(f"{myname}: Logging to {fnam}", file=fout)
     subproc = None
     # Specify which fields are to be recorded.
     # cpu_time = user + system + idle + ...
@@ -117,9 +126,9 @@ def reporter(fnam =Params.fnam, dt =Params.dt, check =Params.check, timeout =Par
     try:
         csv_file = open(fnam, "a")
     except e:
-        print(f"{myname}: ERROR: {e}")
+        print(f"{myname}: ERROR: {e}", file=fout)
     else:
-        if dbg > 2: print(f"{myname}: Reporting...")
+        if dbg > 2: print(f"{myname}: Reporting...", file=fout)
         if needheader:
             print(hdrline, file=csv_file, flush=True)
             needheader = False
@@ -188,20 +197,21 @@ def reporter(fnam =Params.fnam, dt =Params.dt, check =Params.check, timeout =Par
                         reason = f'subprocess terminated with status {subproc.returncode}'
                         break
             checkval = None if check is None else check()
-            if dbg > 2: print(f'{myname}: Check returns {checkval}')
+            if dbg > 2: print(f'{myname}: Check returns {checkval}', file=fout)
             if checkval is not None:
                 reason = f'check returned {checkval}'
                 break
             if timeout > 0 and now - time0 > timeout:
                 reason = f'total time exceeded {timeout} sec'
                 break
-            if dbg > 1: print(f'{myname}: Sleeping...')
+            if dbg > 1: print(f'{myname}: Sleeping...', file=fout, flush=True)
             time.sleep(dt)
     finally:
         csv_file.close()
 
-    if dbg > 0: print(f"{myname}: Polling terminated because {reason}")
-    if dbg > 0: print(f"{myname}: Poll count is {npoll}")
+    if dbg > 0: print(f"{myname}: Polling terminated because {reason}", file=fout)
+    if dbg > 0: print(f"{myname}: Poll count is {npoll}", file=fout)
+    if len(log): close(fout)
     return 0
 
 def reporter_from_string(scfg =''):
@@ -221,14 +231,17 @@ def main_reporter():
     myname = 'main_reporter'
     pars = Params()
     cfg = sys.argv[1] if len(sys.argv) else ''
-    print(f"{myname}: Configuring with '{cfg}'")
-    glos = {}
-    vals = {}
-    if len(cfg): exec(cfg, glos, vals)
-    pars.update(vals)
-    if len(sys.argv) > 1: pars.subcom = " ".join(sys.argv[2:])
+    if len(cfg):
+        print(f"{myname}: Configuring with '{cfg}'")
+        glos = {}
+        vals = {}
+        exec(cfg, glos, vals)
+        pars.update(vals)
+    if len(sys.argv) > 1:
+        print(f"{myname}: Monitored command is 'pars.subcom'")
+        pars.subcom = " ".join(sys.argv[2:])
     reporter(pars.fnam, pars.dt, pars.check, pars.timeout, 
-             pars.subcom, pars.dbg, pars.thr)
+             pars.subcom, pars.dbg, pars.thr, pars.log)
 
 #if __name__ == "__main__":
 #    main_reporter()
