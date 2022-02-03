@@ -1,5 +1,14 @@
 # desc-wfmon
-Python-based workflow monitor for DESC image processing
+
+David Adams  
+February 2022  
+
+This python-based DESC workflow monitoring package provides provides tools for examining
+the process monitor DB produced by [parsl](https://parsl-project.org).
+It also provides a reporter for collecting system-level data aout CPU, memory and I/O
+that can be run standalone or integrated with parsl or any other workflow system.
+Tools to visualize the process data and examine and visualize the sytem-level
+data will be added soon.
 
 ## Installation
     > git clone https://github.com/LSSTDESC/desc-wfmon.git
@@ -8,10 +17,10 @@ Python-based workflow monitor for DESC image processing
 
 ## Modules
 
-List tables and schema in ./monitoring.db:
+The following modules are included:
 
-    >>> import desc.wfmon
-    >>> dbr = desc.wfmon.MonDbReader()
-    >>> dbr.tables(2)
-    
-This is after "fixing" the tables. Add fix=False to see the raw tables.
+- [desc.wfmon](desc/wfmon/README.md): Tools for examining and visualizing data in the parsl process monitoring DB.
+- [desc.sysmon](desc/sysmon/README.md): Reporter for recording system-level data and tools for examing and visualizing that data.
+- [desc.parsltest](desc/parsltest/README.md):
+
+Follow the above links or use python help, e.g. help(desc.wfmon) for more information about each module.
