@@ -9,6 +9,7 @@ import subprocess
 import os
 import sys
 import time
+import signal
 from threading import Thread
 from desc.sysmon import __version__
 
@@ -75,9 +76,17 @@ def reporter(fnam =Params.fnam, dt =Params.dt, check =Params.check, timeout =Par
           log - If non-blank, logging is to this file. Blank means stdout.
     """
     myname = 'sysmon.reporter'
+    # Open log file.
     fout = sys.stdout
     if len(log):
         fout = open(log, 'w')
+    # Define signal handler.
+    sigTerm = False
+    def signal_handler(*args):
+        if dbg: print(f"{myname}: Received terminate signal.", file=fout, flush=True)
+        sigTerm = True
+    signal.signal(signal.SIGTERM, signal_handler) # Or whatever signal
+    # Display config.
     if dbg > 1:
         print(f"{myname}:     fnam: {fnam}", file=fout)
         print(f"{myname}:       dt: {dt}", file=fout)
@@ -191,6 +200,7 @@ def reporter(fnam =Params.fnam, dt =Params.dt, check =Params.check, timeout =Par
                 # the process starts and after it ends.
                 if subproc is None:
                     subproc = subprocess.Popen(subcom.split())
+                    if dbg: print(f"{myname}: Started subprocess {subproc.pid}", file=fout)
                 else:
                     if subproc.poll() is not None:
                         status = subproc.returncode
@@ -204,13 +214,17 @@ def reporter(fnam =Params.fnam, dt =Params.dt, check =Params.check, timeout =Par
             if timeout > 0 and now - time0 > timeout:
                 reason = f'total time exceeded {timeout} sec'
                 break
+            if sigTerm:
+                reason = f'terminate signal was received'
+                break
             if dbg > 1: print(f'{myname}: Sleeping...', file=fout, flush=True)
             time.sleep(dt)
     finally:
         csv_file.close()
 
-    if dbg > 0: print(f"{myname}: Polling terminated because {reason}", file=fout)
-    if dbg > 0: print(f"{myname}: Poll count is {npoll}", file=fout)
+    if dbg > 0: print(f"{myname}: Polling terminated because {reason}.", file=fout)
+    if dbg > 0: print(f"{myname}: Poll count is {npoll}.", file=fout)
+    if dbg > 0: print(f"{myname}: Done.", file=fout)
     if len(log): close(fout)
     return 0
 
