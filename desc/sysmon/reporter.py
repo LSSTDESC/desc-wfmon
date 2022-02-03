@@ -83,6 +83,7 @@ def reporter(fnam =Params.fnam, dt =Params.dt, check =Params.check, timeout =Par
     # Define signal handler.
     sigTerm = False
     def signal_handler(*args):
+        nonlocal sigTerm
         if dbg: print(f"{myname}: Received terminate signal.", file=fout, flush=True)
         sigTerm = True
     signal.signal(signal.SIGTERM, signal_handler) # Or whatever signal
@@ -109,8 +110,11 @@ def reporter(fnam =Params.fnam, dt =Params.dt, check =Params.check, timeout =Par
         t = Thread(target=reporter, args=args)
         t.start()
         return t
+    if dbg > 0:
+        print(f"{myname}: Starting reporter version {__version__}", file=fout)
+        print(f"{myname}: Monitor output file is {fnam}", file=fout)
+        print(f"{myname}: Log file is {log}", file=fout)
     if dbg > 0: print(f"{myname}: Starting reporter version {__version__}", file=fout)
-    if dbg > 0: print(f"{myname}: Logging to {fnam}", file=fout)
     subproc = None
     # Specify which fields are to be recorded.
     # cpu_time = user + system + idle + ...
@@ -244,7 +248,7 @@ def main_reporter():
     print('Running the desc-sysmon-reporter')
     myname = 'main_reporter'
     pars = Params()
-    cfg = sys.argv[1] if len(sys.argv) else ''
+    cfg = sys.argv[1] if len(sys.argv)>1 else ''
     if len(cfg):
         print(f"{myname}: Configuring with '{cfg}'")
         glos = {}
