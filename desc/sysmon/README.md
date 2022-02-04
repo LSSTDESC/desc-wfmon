@@ -1,30 +1,36 @@
-# desc.sysmon -- THIS PAGE IS UNDER DEVELOPMENT
+# desc.sysmon
 
 This python module provides for system-level monitoring of CPU and memory usage
 and disk and network I/O.
 It inclues a reporter to collect data at regular intervals and
 (soon) tools to examine and plot that data.
 
-## Reporter.
+## Reporter
 
 The reporter uses [psutil](https://pypi.org/project/psutil) to collect data
-on system performance at regular intervals. The following data are recorded:
+on system performance at regular intervals. The following data are recorded.
+Unle
 
-            time - Unix time (including fraction) in seconds
-       cpu_count
-    cpu_percent
-    cpu_user
-    cpu_system
-    cpu_idle
-    cpu_iowait
-    cpu_time
-    mem_total
-    mem_available
-    mem_swapfree
-    dio_readsize
-    dio_writesize
-    nio_readsize
-    nio_writesize
+             time - Unix time (including fraction) in seconds
+        cpu_count - Numnber of logical CPUs.
+      cpu_percent - Percentage of CPU being used (max cpu_count) over interval
+         cpu_user - Time spent in user mode
+       cpu_system - Time spent in system mode
+         cpu_idle - Time spent idle
+       cpu_iowait - Time spent waiting for I/O (not included in idle)
+         cpu_time - Total CPU time (expect cpu_count*time)
+        mem_total - Total physicasl memory
+    mem_available - Available physical memory.
+     mem_swapfree - Available swap memory.
+     dio_readsize - Disk read size.
+    dio_writesize - Disk write size.
+     nio_readsize - Network read size.
+    nio_writesize - Network write size.
+    
+For more information on thesse see https://psutil.readthedocs.io/en/latest.
+Times are seconds since the preceding sample is in seconds.
+Memory is GB (2^30 byte) at the time of sampling.
+Disk and network I/O are the number of GB since the last sampling.
     
 The reporter may be called from python, e.g.
 <pre>
@@ -48,7 +54,8 @@ with the following fields as arguments:
           log - If non-blank, logging is to this file. Blank means stdout. ['']
           
 Any of the arguments may be included or omitted with the values shown in backets used
-in the latter case. The defaults may be changed in class Params, e.g.
+in the latter case. The defaults are specified in class Params and may be changed there
+instead of providing arguments, e.g.
 
     >>> desc.sysmon.Params.dbg = 3
     
@@ -56,16 +63,7 @@ By default, the python function will not return until the reporter finishes poll
 Set *thr* to True to run the reporter in a separate thread and return control immediately.
     
 If *subcom* is not blank, then it will be executed as a shell command after the first sample
-is recorded and the reporter will exit one sample after the command exits.
-
-In the [../parsltest/README.md](parsl test) provided here the command is used
-
-
-
-List tables and schema in ./monitoring.db:
-
-    >>> import desc.wfmon
-    >>> dbr = desc.wfmon.MonDbReader()
-    >>> dbr.tables(2)
-    
-This is after "fixing" the tables. Add fix=False to see the raw tables.
+is recorded and sampling continues until the command exits.
+The reporter can be stopped with *timeout*, providing a switch function *check* (e.g. desc.sysmon.Notify),
+or by sending SIGTERM to the reporter process.
+In all cases, the reporter does one additional sampling before exiting.
