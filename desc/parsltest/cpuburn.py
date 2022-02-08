@@ -37,11 +37,14 @@ def cpuburn(name, tmax, memmax):
     val4s = []
     lines = []
     t0 = time.process_time()
+    print(f"""{name}: Starting memory is {proc.memory_info().rss/gb:.3f} GB""")
+    nfil = 0
     while True:
         val = random.gauss(mu, sig)
         sum = sum + val
         memuse = proc.memory_info().rss/gb
-        if memuse < memmax:
+        tim = time.process_time() - t0
+        if memuse < memmax and tim < tmax:
             for val1 in vals:
                 val2s.append(val1*val)
             vals.append(val)
@@ -54,17 +57,14 @@ def cpuburn(name, tmax, memmax):
             #        fout.write(f"{val}\n")
             #    for val in val2s:
             #        fout.write(f"{val}\n")
-        n = n + 1
-        mempak = 0
-        tim = time.process_time() - t0
-        if tim > tmax:
-            fnam = f"out/{name}.out"
+        else:
+            fnam = f"out/{name}-{nfil}.out"
             print(f"""{name}: Writing {fnam} at {tim:.3f} sec""")
             pout1 = proc.io_counters().write_chars
             sout1 = psutil.disk_io_counters().write_bytes
             nout1 = psutil.net_io_counters().bytes_sent
             with open(fnam, "wb") as fout:
-                print(f""" Start  pack at {time.time()}""")
+                print(f""" Start pack {nfil} at time {tim:.3f} sec, memory {memuse:.3f} GB""")
                 s1 = struct.pack('f'*len(vals), *vals)
                 fout.write(s1)
                 blklen = 10000
@@ -81,7 +81,12 @@ def cpuburn(name, tmax, memmax):
             dsout = psutil.disk_io_counters().write_bytes - sout1
             dnout = psutil.net_io_counters().bytes_sent - nout1
             print(f"""{name}: Process, disk, network out: {dpout/gb:.3f}, {dsout/gb:.3f}, {dnout/gb:.3f} GB""")
-            break
+            nfil = nfil + 1
+            if tim >= tmax: break
+            vals = []
+            vals2 = []
+        n = n + 1
+        mempak = 0
     mean = sum/n
     dio = proc.io_counters()
     inpsize = dio.read_chars/gb

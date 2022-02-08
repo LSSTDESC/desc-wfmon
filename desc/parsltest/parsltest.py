@@ -109,6 +109,7 @@ def main_parsltest():
     sfac = 10.0
     nwrk = 4
     dsam = 10
+    mmax = 10
     if len(sys.argv) > 1:
         njob = int(sys.argv[1])
     if len(sys.argv) > 2:
@@ -121,4 +122,4 @@ def main_parsltest():
             dsam = float(sys.argv[4])
     if len(sys.argv) > 5:
         mmax = int(sys.argv[5])
-    if njob > 0: parsltest(njob, sfac, max_workers=nwrk, dsam=dsam)
+    if njob > 0: parsltest(njob, sfac, max_workers=nwrk, dsam=dsam, memmax=mmax)
