@@ -71,7 +71,7 @@ def reporter(fnam =Params.fnam, dt =Params.dt, check =Params.check, timeout =Par
         check - If not None polling ceases when check() returns anything
                 except None [None].
       timeout - If nonzero, polling ceases after timeout seconds [0].
-          dbg - Lof message level.
+          dbg - Log message level: 0=none, 1=minimal, 2=config, 3=every sample
           thr - If true, reporter is run in a thread and this returns immediately.
           log - If non-blank, logging is to this file. Blank means stdout.
     """
@@ -221,7 +221,7 @@ def reporter(fnam =Params.fnam, dt =Params.dt, check =Params.check, timeout =Par
             if sigTerm:
                 reason = f'terminate signal was received'
                 break
-            if dbg > 1: print(f'{myname}: Sleeping...', file=fout, flush=True)
+            if dbg > 2: print(f'{myname}: Sleeping...', file=fout, flush=True)
             time.sleep(dt)
     finally:
         csv_file.close()
