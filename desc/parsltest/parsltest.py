@@ -56,7 +56,7 @@ def parsltest(njob =4, tmax =10, memmax =10, clean =True, twait =5, max_workers 
         print('Running no jobs.')
     elif njob == 1:
         print('Running 1 job for {tmax} sec.')
-        tjob.append[tmax]
+        tjob.append(tmax)
     else:
         t0 = 0.5*tmax
         dtjob = (tmax-t0)/(njob-1)
