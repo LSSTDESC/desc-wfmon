@@ -14,13 +14,14 @@ from IPython.display import display
 class MonDbReader:
     filename = "monitoring.db"
 
-    def __init__(self, filename ='./monitoring.db', fix=True, dbg=0):
+    def __init__(self, filename ='./monitoring.db', fix=True, dodelta=False, dbg=0):
         """
         MuonDbReader provides access to a parsl monitoring database which has information
         about workflows and their tasks including start and stop times and process information.
         Arguments:
           filename: Nmae of the MySQL file holding the minotoring data.
                fix: if True, the tables are "fixed".
+               dodelta: if True, deltas are evaluated when the procsum table is constructed.
                dbg: Debugging level:
                       0 - Quiet.
                       1 - Single line indicating methods that are run plus warning messages.
@@ -46,7 +47,7 @@ class MonDbReader:
         """Construct from the path to the monitoring DB file [monitoring.db]."""
         if len(filename): self.filename = filename
         self._connect()
-        if fix: self.fix()
+        if fix: self.fix(dodelta)
 
     def __getitem__(self, tnam):
         return self.table(tnam, 0)
@@ -79,7 +80,7 @@ class MonDbReader:
         myname = "MonDbReader::time_from_string:"
         if stim is None: return 0
         if type(stim) is not str:
-            print(f"""{myname}: Cannot convert type {type(stim)}.""")
+            print(f"""{myname}: ERROR: Cannot convert type {type(stim)}.""")
             assert(False)
         assert(type(stim) is str)
         stimarr = stim.split('.')
@@ -123,7 +124,7 @@ class MonDbReader:
                 print(line)
                 add_closing_line = True
                 self.table(tnam, lev)
-        if add_closing_line: print("line")
+        if add_closing_line: print(line)
         if lev==0: return self._tables
 
     def table(self, tnam, lev=0):
@@ -497,9 +498,9 @@ class MonDbReader:
                     newnam = oldnam.replace(srep, 'procsum_')
                     break;
             cnams.append(newnam)
-        print(olddf.columns)
-        print(newdf.columns)
-        print(cnams)
+        #print(olddf.columns)
+        #print(newdf.columns)
+        #rint(cnams)
         newdf.columns = cnams
         # Drop rows without any processes.
         newdf.insert(0, 'timestamp', rngs[0:len(rngs)-1] + dt/2)
