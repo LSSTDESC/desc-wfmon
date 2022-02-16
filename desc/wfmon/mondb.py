@@ -474,10 +474,12 @@ class MonDbReader:
                     mrgdfs.append(self.taskproc(irun, tid))
                     self.dbg = dbgsav
             olddf = pandas.concat(mrgdfs)
+            pidnam = 'proc_pid'
         else:
             res = self.table('resource')
             self.monitoring_interval = res.at[0, 'resource_monitoring_interval']
-            olddf = res[ ['timestamp'] + colkeeps + colproc_sums ]
+            olddf = res[ ['timestamp', 'psutil_process_pid'] + colkeeps + colproc_sums ]
+            pidnam = 'psutil_process_pid'
         dt = self.monitoring_interval
         assert(dt is not None)
         t1 = int(olddf.timestamp.min()/dt)*dt
@@ -486,11 +488,11 @@ class MonDbReader:
         bins = pandas.cut(olddf.timestamp, rngs)
         # First handle the keeps and sums.
         # Aggregate: evaluate count, first, or sum for various columns.
-        agdict = {'timestamp':['count']}
+        agdict = {'timestamp':['count'], pidnam:['nunique']}
         for col in colkeeps: agdict[col] = ['first']
         for col in colproc_sums: agdict[col] = 'sum'
         newdf = olddf.groupby(bins).agg(agdict)
-        cnams = ['nproc'] + colkeeps
+        cnams = ['nval', 'nproc'] + colkeeps
         for oldnam in colproc_sums:
             newnam = oldnam
             for srep in sreps:

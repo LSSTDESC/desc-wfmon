@@ -45,7 +45,7 @@ def myjob(name, trun):
 def mybash(name, trun, memmax):
     return f"""desc-cpuburn {name} {trun} {memmax} 2>&1 >{name}.log; echo Finished job {name}"""
 
-def parsltest(njob =4, tmax =10, memmax =10, clean =True, twait =5, max_workers =4, dsam =10):
+def parsltest(njob =4, tmax =10, memmax =10, clean =True, twait =5, max_workers =4, dsam =1):
     print('Welcome to parsltest')
     print(f"""Parsl version is {parsl.version.VERSION}""")
     print(f"""Desc-sysmon version is {desc.sysmon.__version__}""")
