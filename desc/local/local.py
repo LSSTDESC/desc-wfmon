@@ -13,6 +13,8 @@ def install_dir(use=True, rem=False):
     The directory is created if it does not already exist.
     If use is true, the directory is added to sys.path if
     if is not already present.
+    If rem is true, the installation directory is removed
+    and the created empty.
     """
     basdir = './install'
     conda_name = os.getenv('LSST_CONDA_ENV_NAME')
