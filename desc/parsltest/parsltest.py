@@ -9,6 +9,7 @@ import psutil
 import sys
 import os
 import desc.sysmon
+import random
 
 def load_config(max_workers =4, dsam =10):
     lcom = parsl.executors.high_throughput.executor.DEFAULT_LAUNCH_CMD
@@ -37,7 +38,7 @@ def load_config(max_workers =4, dsam =10):
 @parsl.python_app
 def myjob(name, trun):
     import time
-    print(f"""Running job {name} for {trun} seconds""")
+    print(f"""Running job {name} for {trun:.1f} seconds""")
     time.sleep(trun)
     return f"""Finished job {name}"""
 
@@ -51,18 +52,19 @@ def parsltest(njob =4, tmax =10, memmax =10, clean =True, twait =5, max_workers 
     print(f"""Desc-sysmon version is {desc.sysmon.__version__}""")
     msg = desc.sysmon.Notify()
     #thr = desc.sysmon.reporter('out/sysmon.csv', check=msg, dbg=3, thr=True)
-    tjob = [None]
+    tjob = []
     if njob <= 0:
         print('Running no jobs.')
     elif njob == 1:
-        print('Running 1 job for {tmax} sec.')
+        print('Running 1 job for {tmax:.1f} sec.')
         tjob.append(tmax)
     else:
         t0 = 0.5*tmax
         dtjob = (tmax-t0)/(njob-1)
-        for ijob in range(1,njob+1):
-            tjob.append(t0 + (ijob-1)*dtjob)
-        print(f"Running {njob} jobs for {tjob[1]} - {tjob[njob]} sec.")
+        for ijob in range(njob):
+            tjob.append(tmax - ijob*dtjob)
+        random.shuffle(tjob)
+        print(f"Running {njob} jobs for {min(tjob):.1f} - {max(tjob):.1f} sec.")
     print(f"""Job memory limit is {memmax} GB.""")
     print(f"""Number of workers: {max_workers}.""")
     print(f"""Monitor sampling time: {dsam} seconds.""")
@@ -71,7 +73,7 @@ def parsltest(njob =4, tmax =10, memmax =10, clean =True, twait =5, max_workers 
     load_config(max_workers, dsam)
     jobs = []
     jobsDone = []
-    for ijob in range(1,njob+1):
+    for ijob in range(njob):
         jobs.append( mybash(f'job{ijob:02}', tjob[ijob], memmax) )
     showio = False
     if showio: print(psutil.disk_io_counters())

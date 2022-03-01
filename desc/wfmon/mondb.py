@@ -294,7 +294,7 @@ class MonDbReader:
         cnam = 'task_func_name'
         icol = tab.columns.get_loc(cnam)
         tab.insert(icol, 'task_idx', task_idxs)
-        tab.drop(cnam, 1, inplace=True)
+        tab.drop(labels=cnam, axis=1, inplace=True)
         # Add 'run_idx' to all the other tables thaat have 'run_id'.
         for tnam in self.table_names():
             tab = self.table(tnam)
