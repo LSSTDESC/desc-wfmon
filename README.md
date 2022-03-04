@@ -25,3 +25,11 @@ The following modules are included:
 - [desc.local](desc/local/README.md): Tools to aid in local python package installation and access.
 
 Follow the above links or use python help, e.g. help(desc.wfmon) for more information about each module.
+
+## Notebooks
+
+Example python notebooks can be found in [ipynb](ipynb). Copy those to a directory and point and load them in a Jupyter server such as [https://jupyter.nersc.gov]. The install notebook can be used to install this package so it is easlily accessed by the others. Notebookd include:
+
+- [install](ipynb/install.ipynb) - Installs this package from a git clone so it is easily accessed from other notebooks.
+- [mondump](ipynb/mondump.ipynb) - Shows the schema for the system or process monitors from specifed files.
+- [monexp](ipynb/monexp.ipynb) - Generates performance plots from the system and process monitoring data for one run.
