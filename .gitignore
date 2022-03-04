@@ -1,2 +1,6 @@
 build
 desc_wfmon.egg-info
+ipynb/.ipynb_checkpoints
+ipynb/install
+ipynb/io.png
+ipynb/tmplocal
