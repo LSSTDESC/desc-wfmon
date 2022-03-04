@@ -19,7 +19,7 @@ class MonDbReader:
         MuonDbReader provides access to a parsl monitoring database which has information
         about workflows and their tasks including start and stop times and process information.
         Arguments:
-          filename: Nmae of the MySQL file holding the minotoring data.
+          filename: Name of the MySQL file holding the minotoring data.
                fix: if True, the tables are "fixed".
                dodelta: if True, deltas are evaluated when the procsum table is constructed.
                dbg: Debugging level:
@@ -28,8 +28,9 @@ class MonDbReader:
                       2 - Few lines summarizing results of each method.
                       3, 4, ... - Increasing level of detail.
         """
-        self.dbg = dbg
-        self.workflow_names = []        # List of workflow names.
+        self.filename = None            # Name of the source file
+        self.dbg = dbg                  # Debugging level (see above)
+        self.workflow_names = []        # List of workflow (run) names.
         self.workflow_time_ranges = []  # List of time range in seconds for each workflow
         self.run_ids = []               # List of run IDs in the original task table.
         self.task_names = []            # List of task names (index is the task index).
@@ -39,10 +40,12 @@ class MonDbReader:
         self.fixed = []                 # List of properties that have been fixed: workflows, times, ...
         self.remove_counts = {}         # Number of rows removed from each table.
         self.t0 = 0                     # Time offset (sec) for all fixed times.
-        self._con = None
-        self._tables = {}
         self.monitoring_interval = None
         self.taskprocs = []             # Dictionary of taskproc tables for each run index.
+        self._taskcount_delt = 0        # Time spacing for the task count tables.
+        self._taskcounts = []           # Run-indexed array of task-indexed arrays of time:state dfs.
+        self._con = None
+        self._tables = {}
 
         """Construct from the path to the monitoring DB file [monitoring.db]."""
         if len(filename): self.filename = filename
@@ -532,6 +535,51 @@ class MonDbReader:
         t1 = fac*wkf['time_began'][iwkf]
         t2 = fac*wkf['time_completed'][iwkf]
         return (t1, t2)
+
+    def taskcounts(self, state=None, runidx=0, delt=1):
+        """
+        Return a dataframe time:task_idx for a give state and run index
+        holding the total nuber of task tries that have reached the state.
+        States are ['launched', 'running', 'returned']
+        """
+        nrun = len(self.workflow_names)
+        if nrun == 0: return
+        ntsk = len(self.task_names)
+        snams = ['launched', 'running', 'returned']
+        tnams = list(range(ntsk))
+        cnams = ['time'] + tnams
+        nsta = len(snams)
+        if len(self._taskcounts) != nrun:
+            self.taskcount_delt = delt
+            tcs = [{}]*nrun
+            # Loop over runs and create zeroed task counters.
+            for irun in range(nrun):
+                t1 = self.workflow_time_ranges[irun][0]
+                t2 = self.workflow_time_ranges[irun][1]
+                toff = t1
+                ntim = int((t2-t1)/delt) + 1
+                df = pandas.DataFrame(0, index=range(ntim), columns=cnams)
+                df['time'] = numpy.arange(t1-toff, t2-toff+10*delt, delt)[0:ntim]
+                for snam in snams:
+                    tcs[irun][snam] = df.copy()
+            # Loop over tries and fill the counters.
+            for row in self.table('try').itertuples():
+                for snam in snams:
+                    mytcs = tcs[row.run_idx][snam]
+                    cnam_try = 'task_try_time_' + snam
+                    cnam_tcs = row.task_idx
+                    time = getattr(row, cnam_try)
+                    sel = mytcs['time'] > time
+                    mytcs.loc[sel, cnam_tcs] += 1
+            # Add a column with sum over tasks.
+            for irun in range(nrun):
+                for snam in snams:
+                    mytcs = tcs[irun][snam]
+                    mytcs['all'] = mytcs[tnams].sum(1)
+            self._taskcounts = tcs
+        if state is None: return
+        return self._taskcounts[runidx][state]
+        
 
 import unittest
 
