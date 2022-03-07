@@ -41,7 +41,7 @@ class MonDbReader:
         self.remove_counts = {}         # Number of rows removed from each table.
         self.t0 = 0                     # Time offset (sec) for all fixed times.
         self.monitoring_interval = None
-        self.taskprocs = []             # Dictionary of taskproc tables for each run index.
+        self.taskprocs = [[], []]       # Dictionary of nodeleta,delta taskproc tables for each run index.
         self._taskcount_delt = 0        # Time spacing for the task count tables.
         self._taskcounts = []           # Run-indexed array of task-indexed arrays of time:state dfs.
         self._con = None
@@ -249,7 +249,8 @@ class MonDbReader:
             t2 = wkf['time_completed'][iwkf]
             if self.dbg >= 3: print(f"""{myname}: Time range for run {iwkf} is [{t1}, {t2}].""")
             self.workflow_time_ranges.append((t1, t2))
-            self.taskprocs.append({})
+            for itp in range(2):
+              self.taskprocs[itp].append({})
         # Set flag.
         self.fixed.append('times')
 
@@ -324,8 +325,8 @@ class MonDbReader:
         """
         myname = self.__class__.__name__ + "::task_procsum"
         # Check if summary already exists.
-        if dodelta and runidx < len(self.taskprocs) and taskid in self.taskprocs[runidx]:
-            return self.taskprocs[runidx][taskid]
+        if runidx < len(self.taskprocs[dodelta]) and taskid in self.taskprocs[dodelta][runidx]:
+            return self.taskprocs[dodelta][runidx][taskid]
         # Make sure tasks and times are already fixed so we have task indices and the starting time.
         if 'tasks' not in self.fixed:
             if self.dbg >= 2: print(f"""{myname}: Fixing tasks.""")
@@ -340,12 +341,12 @@ class MonDbReader:
         # Columns for which we keep.
         colkeeps = ['timestamp', 'run_idx', 'task_idx', 'task_id', 'try_id']
         # Columns that we add.
-        colnews = ['toff', 'nsam', 'isam']
+        colnews = ['toff', 'proc_time_clock', 'nsam', 'isam']
         # Columns for which we keep but rename: psutil_process --> proc
         colproc_rens = [
                 'psutil_process_pid',
                 'psutil_process_status',
-                'psutil_process_cpu_percent',
+                #20220304: 'psutil_process_cpu_percent',
                 'psutil_process_memory_percent',
                 'psutil_process_memory_resident',
                 'psutil_process_memory_virtual'
@@ -399,23 +400,34 @@ class MonDbReader:
                 toff = 0.0
                 break
             toff = toff + dtoff
+        # Add clock time = time since job started.
+        ttry = self.table('try')
+        ttryproc = ttry.query(qry)
+        t0 = ttryproc['task_try_time_running'].squeeze()
+        timdf = olddf['timestamp'] - t0
+        timlab = 'procsum_time_clock'
         if dodelta:
             if self.dbg >= 4: print(f"""{myname}: Evaluating deltas.""")
             # To get the deltas, keep the first row and use diff for the remainder.
             # There is a missing contribution from process activity afte the last sampling.
             deldf = olddf[colproc_dels].diff()
             deldf.iloc[0] = olddf[colproc_dels].iloc[0]
+            tsav = timdf.iloc[0]
+            timdf = timdf.diff()
+            timdf.iloc[0] = tsav
+            timlab = 'procdel_time_clock'
         else:
             deldf = olddf[colproc_dels]
         # Build the ouput dataframe.
         newdf = olddf[colkeeps].copy()
         newdf['toff'] = toff
+        newdf[timlab] = timdf
         nsam = len(olddf)
         newdf['nsam'] = nsam
         newdf['isam'] = range(0, nsam)
         newdf[colproc_rens_renamed] = olddf[colproc_rens]
         newdf[colproc_dels_renamed] = deldf[colproc_dels]
-        if dodelta: self.taskprocs[runidx][taskid] = newdf
+        self.taskprocs[dodelta][runidx][taskid] = newdf
         return newdf
 
     def build_procsum(self, dodelta=True):
@@ -441,10 +453,11 @@ class MonDbReader:
                 if self.dbg >= 2: print(f"""{myname}: Fixing times.""")
                 self.fix_times()
             colproc_sums = [
-                    'proc_cpu_percent',
+                    #20220304 'proc_cpu_percent',
                     'proc_memory_percent',
                     'proc_memory_resident',
                     'proc_memory_virtual',
+                    'procdel_time_clock',
                     'procdel_time_user',
                     'procdel_time_system',
                     'procdel_disk_read',
@@ -453,7 +466,7 @@ class MonDbReader:
             sreps = ['proc_', 'procdel_']
         else:
             colproc_sums = [
-                    'psutil_process_cpu_percent',
+                    #20220304 'psutil_process_cpu_percent',
                     'psutil_process_memory_percent',
                     'psutil_process_memory_resident',
                     'psutil_process_memory_virtual'
