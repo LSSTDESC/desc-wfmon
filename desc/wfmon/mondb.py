@@ -46,6 +46,7 @@ class MonDbReader:
         self._taskcounts = []           # Run-indexed array of task-indexed arrays of time:state dfs.
         self._con = None
         self._tables = {}
+        self.nwarnNoOffset = 0
 
         """Construct from the path to the monitoring DB file [monitoring.db]."""
         if len(filename): self.filename = filename
@@ -374,7 +375,8 @@ class MonDbReader:
         assert(res is not None)
         qry = f"""run_idx=={runidx} and task_id=={taskid}"""
         if self.dbg >= 3: print(f"""{myname}: Processing '{qry}'.""")
-        olddf = res.query(qry)
+        # Select entries for this task, order by timestamp and reset indices.
+        olddf = res.query(qry).sort_values(by=['timestamp'], ignore_index=True)
         if len(olddf) == 0:
             if self.dbg: print(f"""{myname}: ERROR: No resouce entries match {qry}.""")
             return None
@@ -391,12 +393,13 @@ class MonDbReader:
         # Assuming binning starts at 0.0, check if adjacent samples are not in adjacent bins.
         # If so try to find an offset that fixes this if we bin in timestamp + toff.
         toff = 0.0
-        dtoff = 1.0
-        while len(olddf) > 1:
-            maxdif = max(olddf.timestamp.add(toff).mod(dt).diff()[1:].abs())
+        dtoff = min(1.0, 0.1*dt)
+        while len(olddf) > 2:
+            maxdif = max(olddf.timestamp.add(toff).mod(dt).diff()[2:].abs())
             if maxdif < dt/2: break
             if toff > dt/2 + 1:
-                print(f"""{myname}: WARNING: Unable to find offset for run {runidx} task {taskid}. Using 0.0.""")
+                if self.dbg>2: print(f"""{myname}: WARNING: Unable to find offset for run {runidx} task {taskid}. Using 0.0.""")
+                ++self.nwarnNoOffset
                 toff = 0.0
                 break
             toff = toff + dtoff
@@ -526,6 +529,8 @@ class MonDbReader:
         newdf.query('nproc>0', inplace=True)
         self._tables['procsum'] = newdf
         self._tables[savename] = newdf
+        if self.nwarnNoOffset:
+            print(f"{myname}: WARNING: Count of tasks with no-offset warning: {self.nwarnNoOffset}")
         return newdf
 
     def fix(self, dodelta =False):
