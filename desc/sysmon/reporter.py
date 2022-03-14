@@ -229,7 +229,7 @@ def reporter(fnam =Params.fnam, dt =Params.dt, check =Params.check, timeout =Par
     if dbg > 0: print(f"{myname}: Polling terminated because {reason}.", file=fout)
     if dbg > 0: print(f"{myname}: Poll count is {npoll}.", file=fout)
     if dbg > 0: print(f"{myname}: Done.", file=fout)
-    if len(log): close(fout)
+    if len(log): fout.close()
     return 0
 
 def reporter_from_string(scfg =''):
