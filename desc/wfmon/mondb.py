@@ -608,11 +608,13 @@ class TestMondDbReader(unittest.TestCase):
     or
       > nosetests -v --pdb mondb.py  # Drops into debugger on error or exception.
     """
+    myname = 'TestMonDbReader:ctor'
     badfnam = "nosuchfile"
     fnam = "/global/homes/d/dladams/desc/test6/monitoring.db"
     ntab = 7
     dbr = None
     allfixes = ['runs', 'workflows', 'times', 'tasks', 'procsum']
+    print(f"{myname}: Done.")
 
     def test_good(self):
         self.assertEqual(1,1)

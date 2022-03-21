@@ -1,5 +1,7 @@
 build
 desc_wfmon.egg-info
+*/__pycache__
+*/*/__pycache__
 ipynb/.ipynb_checkpoints
 ipynb/install
 ipynb/*.png
