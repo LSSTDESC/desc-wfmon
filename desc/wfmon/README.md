@@ -1,7 +1,7 @@
 # desc.wfmon
 Module for reading and plotting information in the parsl monitoring database and logs.
 
-## Using the package
+## Using the module
 
 The following classes are provided. To try out any of the indicated notebooks, copy them to a directory where a DESC parsl job has been run.
 
@@ -16,5 +16,5 @@ This is after "fixing" the tables. Add fix=False to see the raw tables. This cod
 
 The class also generates a summary table *procsum* that sums contributions for all active processes in the *try* table. Examples of use the class (and the corresponding one for the system monitor) to make monitoring plots can be found in the [monexp notebook](../../ipynb/monexp.ipynb).
 
-### FunctionData
+### *FunctionData*
 Class *FunctionData* reads the function_data logs which record the times at which task enter states at a finer granularity than that provided by the parsl monitoring DB. Examples of use can be found in the [fundata notebook](../../ipynb/fundata.ipynb).
