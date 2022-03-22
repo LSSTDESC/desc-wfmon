@@ -9,7 +9,7 @@ be found in the [monexp notebook](../../ipynb/monexp.ipynb).
 
 ## Reporter
 
-The reporter uses [psutil](https://pypi.org/project/psutil) to collect data
+The fundtion *reporter* uses [psutil](https://pypi.org/project/psutil) to collect data
 on system performance at regular intervals. The following data are recorded.
 Unle
 
