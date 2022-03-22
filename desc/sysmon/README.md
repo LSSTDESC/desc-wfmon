@@ -2,8 +2,10 @@
 
 This python module provides for system-level monitoring of CPU and memory usage
 and disk and network I/O.
-It inclues a reporter to collect data at regular intervals and
-(soon) tools to examine and plot that data.
+It includes a reporter to collect data at regular intervals.
+The output is a csv file which is easily read into a dataframe (*pandas.read_csv*).
+Examples making plots using this data and that from the parsl process monitor can
+be found in the [monexp notebook](../../ipynb/monexp.ipynb).
 
 ## Reporter
 
