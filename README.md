@@ -19,7 +19,7 @@ data will be added soon.
 
 The following modules are included:
 
-- [desc.wfmon](desc/wfmon/README.md): Tools for examining and visualizing data in the parsl process monitoring DB.
+- [desc.wfmon](desc/wfmon/README.md): Tools for examining and visualizing data in the parsl process monitoring DB and logs.
 - [desc.sysmon](desc/sysmon/README.md): Reporter for recording system-level data and tools for examing and visualizing that data.
 - [desc.parsltest](desc/parsltest/README.md): Job definitions and framework for testing parsl and monitoring.
 - [desc.local](desc/local/README.md): Tools to aid in local python package installation and access.
