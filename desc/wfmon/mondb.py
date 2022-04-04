@@ -37,6 +37,7 @@ class MonDbReader:
         self.task_name_counts = []      # List of the number tasks for each task index.
         self.taskIndexFromName = {}     # Task index for each task name.
         self.task_index = []            # Task index for each run index and task ID.
+        self.task_logs = []             # Log file for task and try
         self.fixed = []                 # List of properties that have been fixed: workflows, times, ...
         self.remove_counts = {}         # Number of rows removed from each table.
         self.t0 = 0                     # Time offset (sec) for all fixed times.
@@ -272,6 +273,7 @@ class MonDbReader:
         if self.dbg: print(f"""{myname}: Fixing tasks.""")
         self.task_names = []
         self.task_name_counts = []
+        self.task_logs = []
         task_idxs = []   # New column
         tab = self.table('task')
         for dum in self.run_ids: self.task_index.append([])
@@ -294,6 +296,7 @@ class MonDbReader:
             task_idxs.append(idx)
             assert( len(self.task_index[run_idx]) == task_id)
             self.task_index[run_idx].append(idx)
+            self.task_logs.append(row.task_stderr)
             task_id = task_id + 1
         # In 'task' replace column task_func_name with task_idx
         cnam = 'task_func_name'
