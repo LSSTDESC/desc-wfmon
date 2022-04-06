@@ -121,6 +121,7 @@ def reporter(fnam =Params.fnam, dt =Params.dt, check =Params.check, timeout =Par
     # memory fields are in GB = 2e30 byte
     # Memory and I/0 are all incremental, i.e. the change since the sampling.
     keys = ['time', 'cpu_count', 'cpu_percent']
+    keys += ['cpu_freq']
     keys += ['cpu_user', 'cpu_system', 'cpu_idle', 'cpu_iowait', 'cpu_time']
     keys += ['mem_total', 'mem_available', 'mem_swapfree']    # Should we add swap total, in and out?
     #keys += ['dio_readcount', 'dio_writecount']
@@ -156,6 +157,7 @@ def reporter(fnam =Params.fnam, dt =Params.dt, check =Params.check, timeout =Par
             d['time'] = now
             d['cpu_count'] = psutil.cpu_count()
             d['cpu_percent'] = psutil.cpu_percent()
+            d['cpu_freq'] = psutil.cpu_freq().current
             # user, nice, system, idle, iowait, irq, softirq, steal, guest, guest_nice
             cpt = psutil.cpu_times()
             mem = psutil.virtual_memory()

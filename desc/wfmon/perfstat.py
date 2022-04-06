@@ -198,8 +198,8 @@ class PerfStatLogReader:
             print(f"{myname}:  nval = {self.nval}")
             print(f"{myname}: nmiss = {self.nmissing}")
             print(f"{myname}: Perf state names: {self.dict.keys()}")
-            n_cycles = 'cycles:u'
-            n_clock = 'task-clock:u'
+        n_cycles = 'cycles:u'
+        n_clock = 'task-clock:u'
         tab = self.table()
         tab['speed'] = tab[n_cycles]/tab[n_clock]
         return {"nkeep":nkeep, "nskip":nskip}
