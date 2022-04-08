@@ -61,7 +61,8 @@ class Params:
 
 
 def reporter(fnam =Params.fnam, dt =Params.dt, check =Params.check, timeout =Params.timeout,
-             subcom =Params.subcom, dbg=Params.dbg, thr=Params.thr, log=Params.log):
+             subcom =Params.subcom, dbg=Params.dbg, thr=Params.thr, log=Params.log,
+             frqfnam=''):
     """
     Report system parameters.
          fnam - Output file name ['sysmon.csv'].
@@ -74,6 +75,7 @@ def reporter(fnam =Params.fnam, dt =Params.dt, check =Params.check, timeout =Par
           dbg - Log message level: 0=none, 1=minimal, 2=config, 3=every sample
           thr - If true, reporter is run in a thread and this returns immediately.
           log - If non-blank, logging is to this file. Blank means stdout.
+      frqfnam - If non-blank, per-cpu CPU freqs are written to this file.
     """
     myname = 'sysmon.reporter'
     # Open log file.
@@ -128,6 +130,7 @@ def reporter(fnam =Params.fnam, dt =Params.dt, check =Params.check, timeout =Par
     keys += ['dio_readsize', 'dio_writesize']
     keys += ['nio_readsize', 'nio_writesize']
     hdrline = keys[0]
+    frq_file = None
     for key in keys[1:]:
         hdrline += ',' + key
     if os.path.exists(fnam) and os.path.getsize(fnam):
@@ -139,6 +142,13 @@ def reporter(fnam =Params.fnam, dt =Params.dt, check =Params.check, timeout =Par
         needheader = True
     try:
         csv_file = open(fnam, "a")
+        if len(frqfnam):
+            if os.path.exists(frqfnam) and os.path.getsize(frqfnam):
+                frq_file = open(frqfnam, 'a')
+                needfrqheader = False
+            if frqfnam is not None:
+                frq_file = open(frqfnam, 'w')
+            needfrqheader = True
     except e:
         print(f"{myname}: ERROR: {e}", file=fout)
     else:
@@ -158,6 +168,7 @@ def reporter(fnam =Params.fnam, dt =Params.dt, check =Params.check, timeout =Par
             d['cpu_count'] = psutil.cpu_count()
             d['cpu_percent'] = psutil.cpu_percent()
             d['cpu_freq'] = psutil.cpu_freq().current
+            freqs = psutil.cpu_freq(True)
             # user, nice, system, idle, iowait, irq, softirq, steal, guest, guest_nice
             cpt = psutil.cpu_times()
             mem = psutil.virtual_memory()
@@ -199,6 +210,17 @@ def reporter(fnam =Params.fnam, dt =Params.dt, check =Params.check, timeout =Par
                 line = f"""{line}{sep}{d[key]:{fmt}}"""
                 sep = ','
             print(line, file=csv_file, flush=True)
+            if frq_file is not None:
+                if needfrqheader:
+                    line = 'time'
+                    for icpu in range(len(freqs)):
+                        line += f",{icpu}"
+                    print(line, file=frq_file, flush=True)
+                    needfrqheader = False
+                line = f"{d['time']:{fmt}}"
+                for frq in freqs:
+                    line += f",{frq.current:{fmt}}"
+                print(line, file=frq_file, flush=True)
             npoll += 1
             status = none
             if len(subcom):
