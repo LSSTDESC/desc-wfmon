@@ -36,6 +36,7 @@ class Params:
     dbg = 1
     thr = False
     log = ''
+    frqfnam = ''
     def __init__(self):
         """Set defaults."""
         self.fnam = Params.fnam
@@ -46,17 +47,19 @@ class Params:
         self.dbg = Params.dbg
         self.thr = Params.thr
         self.log = Params.log
+        self.frqfnam = Params.frqfnam
     def update(self, vals):
         for key in vals:
             val = vals[key]
-            if      key == 'fnam': self.fnam = val
-            elif      key == 'dt': self.dt = val
-            elif   key == 'check': self.check = val
+            if      key == 'fnam':    self.fnam = val
+            elif      key == 'dt':      self.dt = val
+            elif   key == 'check':   self.check = val
             elif key == 'timeout': self.timeout = val
-            elif  key == 'subcom': self.subcom = val
-            elif     key == 'dbg': self.dbg = val
-            elif     key == 'thr': self.thr = val
-            elif     key == 'log': self.log = val
+            elif  key == 'subcom':  self.subcom = val
+            elif     key == 'dbg':     self.dbg = val
+            elif     key == 'thr':     self.thr = val
+            elif     key == 'log':     self.log = val
+            elif key == 'frqfnam': self.frqfnam = val
             else: raise KeyError(f"Invalid reporter parameter name: {key}")
 
 
@@ -283,7 +286,7 @@ def main_reporter():
         print(f"{myname}: Monitored command is 'pars.subcom'")
         pars.subcom = " ".join(sys.argv[2:])
     reporter(pars.fnam, pars.dt, pars.check, pars.timeout, 
-             pars.subcom, pars.dbg, pars.thr, pars.log)
+             pars.subcom, pars.dbg, pars.thr, pars.log, pars.frqfnam)
 
 #if __name__ == "__main__":
 #    main_reporter()
