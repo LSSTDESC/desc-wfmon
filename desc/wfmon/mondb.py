@@ -30,6 +30,7 @@ class MonDbReader:
         """
         self.filename = None            # Name of the source file
         self.dbg = dbg                  # Debugging level (see above)
+        self.nrun = 0                   # Number or runs (workflows)
         self.workflow_names = []        # List of workflow (run) names.
         self.workflow_time_ranges = []  # List of time range in seconds for each workflow
         self.run_ids = []               # List of run IDs in the original task table.
@@ -41,6 +42,7 @@ class MonDbReader:
         self.fixed = []                 # List of properties that have been fixed: workflows, times, ...
         self.remove_counts = {}         # Number of rows removed from each table.
         self.t0 = 0                     # Time offset (sec) for all fixed times.
+        self.t0s = []                   # Time offset (sec) for each run.
         self.monitoring_interval = None
         self.taskprocs = [[], []]       # Dictionary of nodeleta,delta taskproc tables for each run index.
         self._taskcount_delt = 0        # Time spacing for the task count tables.
@@ -225,17 +227,22 @@ class MonDbReader:
         if 'runs' not in self.fixed:
             if self.dbg >= 2: print(f"""{myname}: Fixing runs.""")
             self.fix_runs()
-        self.t0 = self.time_from_string(self.table('workflow').at[0, 'time_began'])
+        wkf = self.table('workflow')
+        nwkf = len(wkf)
+        self.nrun = nwkf
+        self.t0s = nwkf*[0]
+        for iwkf in range(nwkf):
+            self.t0s[iwkf] = self.time_from_string(wkf.at[iwkf, 'time_began'])
+        self.t0 = self.time_from_string(wkf.at[0, 'time_began'])
         for tnam in self.table_names():
+            t0 = None
             tab=self.table(tnam)
             for cnam in tab.columns:
                 if cnam[0:4]=='time' or cnam[0:9]=='task_time' or cnam[0:13]=='task_try_time':
                     if self.dbg >=2: print(f"""{myname}: Fixing column {cnam} in table {tnam}""")
-                    tab[cnam] = tab[cnam].apply(lambda x: x if (x is None) else self.time_from_string(x) - self.t0)
+                    tab[cnam] = tab[cnam].apply(lambda x: x if (x is None) else self.time_from_string(x) - self.t0s[0])
         # If any workflow end times have not been recorded, use the last entry in the resource table.
         # Also add each worflow time range to self.workflow_time_ranges
-        wkf = self.table('workflow')
-        nwkf = len(wkf)
         cwkf = 'time_completed'
         res = self.table('resource')
         cres = 'timestamp'
@@ -480,7 +487,7 @@ class MonDbReader:
             sreps = ['psutil_process_']
         if self.dbg >= 2: print(f"""{myname}: Summed columns: {colproc_sums}.""")
         # Loop over workflow runs and append the summary info for each to the procsum table.
-        nrun = len(self.workflow_time_ranges)
+        nrun = self.nrun
         if nrun == 0:
             if self.dbg: print(f"""{myname}: No workflow runs found.""")
             return
@@ -522,9 +529,6 @@ class MonDbReader:
                     newnam = oldnam.replace(srep, 'procsum_')
                     break;
             cnams.append(newnam)
-        #print(olddf.columns)
-        #print(newdf.columns)
-        #rint(cnams)
         newdf.columns = cnams
         # Drop rows without any processes.
         newdf.insert(0, 'timestamp', rngs[0:len(rngs)-1] + dt/2)
@@ -557,23 +561,27 @@ class MonDbReader:
         t2 = fac*wkf['time_completed'][iwkf]
         return (t1, t2)
 
-    def taskcounts(self, state=None, runidx=0, delt=1):
+    def taskcounts(self, state=None, runidx=0, delt=None):
         """
-        Return a dataframe time:task_idx for a give state and run index
-        holding the total nuber of task tries that have reached the state.
+        Return a dataframe time:0:1:...:(ntsk-1):all with the number of tasks for each
+        task index for the given state and run index.
         States are ['launched', 'running', 'returned']
+        The values for all states and runs are evaluated on the first call or if
+        delt >0 changes.
         """
-        nrun = len(self.workflow_names)
-        if nrun == 0: return
-        ntsk = len(self.task_names)
-        snams = ['launched', 'running', 'returned']
-        tnams = list(range(ntsk))
-        cnams = ['time'] + tnams
-        nsta = len(snams)
-        if len(self._taskcounts) != nrun:
+        nrun = self.nrun
+        if nrun == 0: return None
+        if runidx >= nrun: return None
+        if delt is not None and (len(self._taskcounts) != nrun or delt != self.taskcount_delt):
+            ntsk = len(self.task_names)
+            snams = ['launched', 'running', 'returned']
+            tnams = list(range(ntsk))
+            cnams = ['time'] + tnams
+            nsta = len(snams)
             self.taskcount_delt = delt
-            tcs = [{}]*nrun
+            tcs = []
             # Loop over runs and create zeroed task counters.
+            toff_global = 0
             for irun in range(nrun):
                 t1 = self.workflow_time_ranges[irun][0]
                 t2 = self.workflow_time_ranges[irun][1]
@@ -581,22 +589,32 @@ class MonDbReader:
                 ntim = int((t2-t1)/delt) + 1
                 df = pandas.DataFrame(0, index=range(ntim), columns=cnams)
                 df['time'] = numpy.arange(t1-toff, t2-toff+10*delt, delt)[0:ntim]
+                tcs.append({})
                 for snam in snams:
                     tcs[irun][snam] = df.copy()
+                toff_global = toff_global
             # Loop over tries and fill the counters.
             for row in self.table('try').itertuples():
+                irun = row.run_idx
+                t1 = self.workflow_time_ranges[irun][0]
                 for snam in snams:
-                    mytcs = tcs[row.run_idx][snam]
+                    mytcss = tcs[irun]
+                    mytcs = mytcss[snam]
                     cnam_try = 'task_try_time_' + snam
                     cnam_tcs = row.task_idx
-                    time = getattr(row, cnam_try)
+                    time = getattr(row, cnam_try) - t1
                     sel = mytcs['time'] > time
                     mytcs.loc[sel, cnam_tcs] += 1
+                    if False:
+                        print()
+                        print(f"{snam} {time}")
+                        print(mytcs)
             # Add a column with sum over tasks.
             for irun in range(nrun):
                 for snam in snams:
                     mytcs = tcs[irun][snam]
                     mytcs['all'] = mytcs[tnams].sum(1)
+                    print(f"irun,snam,nrow: {irun}, {snam}, {len(mytcs)}")
             self._taskcounts = tcs
         if state is None: return
         return self._taskcounts[runidx][state]
