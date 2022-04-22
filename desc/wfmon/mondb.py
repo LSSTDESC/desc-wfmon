@@ -256,6 +256,15 @@ class MonDbReader:
                 wkf.at[iwkf, cwkf] = tmax
             t1 = wkf['time_began'][iwkf]
             t2 = wkf['time_completed'][iwkf]
+            if pandas.isna(t2):
+                print(f"{myname}: Completion time not recorded for workflow {iwkf}.")
+                trt = self.table('try')
+                tlaumax = trt['task_try_time_launched'].max()
+                trunmax = trt['task_try_time_running'].max()
+                tretmax = trt['task_try_time_returned'].max()
+                tmax = max(tlaumax, trunmax, tretmax)
+                print(f"{myname}: Used try table to assign completion time for run {iwkf}: {tmax}")
+                t2 = tmax
             if self.dbg >= 3: print(f"""{myname}: Time range for run {iwkf} is [{t1}, {t2}].""")
             self.workflow_time_ranges.append((t1, t2))
             for itp in range(2):
@@ -605,16 +614,12 @@ class MonDbReader:
                     time = getattr(row, cnam_try) - t1
                     sel = mytcs['time'] > time
                     mytcs.loc[sel, cnam_tcs] += 1
-                    if False:
-                        print()
-                        print(f"{snam} {time}")
-                        print(mytcs)
             # Add a column with sum over tasks.
             for irun in range(nrun):
                 for snam in snams:
                     mytcs = tcs[irun][snam]
                     mytcs['all'] = mytcs[tnams].sum(1)
-                    print(f"irun,snam,nrow: {irun}, {snam}, {len(mytcs)}")
+                    if self.dbg>=2: print(f"irun,snam,nrow: {irun}, {snam}, {len(mytcs)}")
             self._taskcounts = tcs
         if state is None: return
         return self._taskcounts[runidx][state]
