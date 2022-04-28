@@ -1,7 +1,7 @@
 # desc-wfmon
 
 David Adams  
-February 2022  
+April 2022  
 
 This python-based DESC workflow monitoring package provides provides tools for examining
 the process monitor DB produced by [parsl](https://parsl-project.org).
@@ -29,3 +29,7 @@ Follow the above links or use python help, e.g. help(desc.wfmon) for more inform
 ## Notebooks
 
 Example python notebooks can be found in [ipynb](ipynb). Copy those to a directory and point and load them in a Jupyter server such as [https://jupyter.nersc.gov].
+
+## Development plans
+* Add array of expected memory usage vs time based on running job types and assigned memory for each type.
+* Replace procsum sampling with linear interpolation. This should remove spikes.
