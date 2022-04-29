@@ -177,20 +177,25 @@ class PerfStatLogReader:
             indict['tstart'] = ttrm.task_try_time_running.iloc[0]
             indict['tstop'] = ttrm.task_try_time_returned.iloc[0]
             fnam = dbr.task_logs[tid]
-            if not os.path.exists(fnam):
-                if dbg >= 1:
-                    print(f"  File not found {fnam}")
-                nskip = nskip + 1
-            else:
-                if self.read_log(fnam, indict, max(dbg-1, 0)):
-                    if dbg >= 2:
-                        print(f"  Error reading {fnam}")
+            try:
+                if not os.path.exists(fnam):
+                    if dbg >= 1:
+                        print(f"  File not found {fnam}")
                     nskip = nskip + 1
-                    self.nskip = self.nskip + 1
                 else:
-                    if dbg >= 2:
-                        print(f"  Read {fnam}")
-                    nkeep = nkeep + 1
+                    if self.read_log(fnam, indict, max(dbg-1, 0)):
+                        if dbg >= 2:
+                            print(f"  Error reading {fnam}")
+                        nskip = nskip + 1
+                        self.nskip = self.nskip + 1
+                    else:
+                        if dbg >= 2:
+                            print(f"  Read {fnam}")
+                        nkeep = nkeep + 1
+            except:
+                if fnam is not None:
+                    print(f"{myname}: Skipping  task {tid} with invalid log path: {fnam}")
+                nskip = nskip + 1
         if dbg >= 1:
             print(f"{myname}: nskip = {nskip}")
             print(f"{myname}: nkeep = {nkeep}")
