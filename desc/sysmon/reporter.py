@@ -10,7 +10,7 @@ import os
 import sys
 import time
 import signal
-from threading import Thread
+import threading
 from desc.sysmon import __version__
 
 def none():
@@ -85,13 +85,14 @@ def reporter(fnam =Params.fnam, dt =Params.dt, check =Params.check, timeout =Par
     fout = sys.stdout
     if len(log):
         fout = open(log, 'w')
-    # Define signal handler.
+    # Define signal handler in main thread only.
     sigTerm = False
-    def signal_handler(*args):
-        nonlocal sigTerm
-        if dbg: print(f"{myname}: Received terminate signal.", file=fout, flush=True)
-        sigTerm = True
-    signal.signal(signal.SIGTERM, signal_handler) # Or whatever signal
+    if threading.current_thread() is threading.main_thread():
+        def signal_handler(*args):
+            nonlocal sigTerm
+            if dbg: print(f"{myname}: Received terminate signal.", file=fout, flush=True)
+            sigTerm = True
+        signal.signal(signal.SIGTERM, signal_handler) # Or whatever signal
     # Display config.
     if dbg > 1:
         print(f"{myname}:     fnam: {fnam}", file=fout)
@@ -111,8 +112,8 @@ def reporter(fnam =Params.fnam, dt =Params.dt, check =Params.check, timeout =Par
     # If this is a thread request, create and start the thread.
     if thr:
         if dbg > 0: print(f"{myname}: Starting thread.", file=fout)
-        args=(fnam, dt, check, timeout, subcom, dbg, False)
-        t = Thread(target=reporter, args=args)
+        args=(fnam, dt, check, timeout, subcom, dbg, False, log, frqfnam, )
+        t = threading.Thread(target=reporter, args=args)
         t.start()
         return t
     if dbg > 0:
