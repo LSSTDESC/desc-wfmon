@@ -93,12 +93,8 @@ def parsltest(njob =4, tmax =10, memmax =10, clean =True, twait =5, max_workers 
     if showio: print(psutil.net_io_counters())
     if False:
         print(f"""Stopping parsl""")
-        try:
-            parsl.dfk().cleanup()     # Needed to stop monitor if we run interactively.
-        except Exception as e:
-            print(f"Exception raised: {e}")
-            #logging.error(traceback.format_exc())
-        print(f"""Clearing parsl""")
+        parsl.dfk().cleanup()     # Needed to stop monitor if we run interactively.
+    print(f"""Clearing parsl""")
     parsl.clear()
     print(f"""Waiting... for sysmon to finish.""")
     time.sleep(dsam)
