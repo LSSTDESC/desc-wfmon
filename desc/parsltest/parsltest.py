@@ -12,13 +12,10 @@ import desc.sysmon
 import random
 
 def load_config(max_workers =4, dsam =10):
-    lcom = parsl.executors.high_throughput.executor.DEFAULT_LAUNCH_CMD
-    rcfg = f"dbg=2;dt={dsam};fnam='runinfo/sysmon.csv';log='runinfo/sysmon.log'"
-    lcom = 'desc-sysmon-reporter "' + rcfg + '" ' + lcom
+    rcfg = f"dbg=2;dt={dsam};fnam='sysmon.csv';log='runinfo/sysmon.log'"
     config = parsl.config.Config(
        executors=[
            parsl.HighThroughputExecutor(
-               launch_cmd = lcom,
                label="local_htex",
                cores_per_worker=1,
                max_workers=max_workers,
@@ -51,7 +48,7 @@ def parsltest(njob =4, tmax =10, memmax =10, clean =True, twait =5, max_workers 
     print(f"""Parsl version is {parsl.version.VERSION}""")
     print(f"""Desc-sysmon version is {desc.sysmon.__version__}""")
     msg = desc.sysmon.Notify()
-    #thr = desc.sysmon.reporter('out/sysmon.csv', check=msg, dbg=3, thr=True)
+    thr = desc.sysmon.reporter('sysmon.csv', check=msg, dbg=3, thr=True)
     tjob = []
     if njob <= 0:
         print('Running no jobs.')
@@ -94,12 +91,18 @@ def parsltest(njob =4, tmax =10, memmax =10, clean =True, twait =5, max_workers 
     time.sleep(twait)
     if showio: print(psutil.disk_io_counters())
     if showio: print(psutil.net_io_counters())
-    print(f"""Stopping parsl""")
-    parsl.dfk().cleanup()     # Needed to stop monitor if we run interactively.
+    if False:
+        print(f"""Stopping parsl""")
+        try:
+            parsl.dfk().cleanup()     # Needed to stop monitor if we run interactively.
+        except Exception as e:
+            print(f"Exception raised: {e}")
+            #logging.error(traceback.format_exc())
+        print(f"""Clearing parsl""")
     parsl.clear()
     print(f"""Waiting... for sysmon to finish.""")
     time.sleep(dsam)
-    msg = 'Done'
+    msg.set('Done')
     print("Exiting.")
 
 def main_parsltest():
