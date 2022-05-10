@@ -80,14 +80,15 @@ def reporter(fnam =Params.fnam, dt =Params.dt, check =Params.check, timeout =Par
           log - If non-blank, logging is to this file. Blank means stdout.
       frqfnam - If non-blank, per-cpu CPU freqs are written to this file.
     """
-    myname = 'sysmon.reporter'
+    myname = 'sysmon.reporter[' + threading.current_thread().name + ']'
     # Open log file.
     fout = sys.stdout
     if len(log):
         fout = open(log, 'w')
     # Define signal handler in main thread only.
     sigTerm = False
-    if threading.current_thread() is threading.main_thread():
+    if threading.current_thread() is threading.main_thread() and not thr:
+        print(f"{myname}: Setting handler for SIGTERM")
         def signal_handler(*args):
             nonlocal sigTerm
             if dbg: print(f"{myname}: Received terminate signal.", file=fout, flush=True)
