@@ -18,8 +18,9 @@ def cpuburn(name, tmax, memmax):
     sig = 1.0
     n = 0
     sum = 0
-    print(f"""{name}: Working for {tmax} seconds...""")
-    print(f"""{name}: Maximum memory is {memmax} GB""")
+    print(f"{name}: Working for {tmax} seconds...")
+    print(f"{name}: Maximum memory is {memmax} GB")
+    print(f"{name}: Working directory: {os.getcwd()}")
     memsize = 0
     memuse = 0
     inpsize = 0

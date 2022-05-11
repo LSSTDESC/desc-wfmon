@@ -27,6 +27,10 @@ def make_config(max_workers =4, dsam =10, sexec='ht'):
                    max_workers=max_workers,
                    address=parsl.addresses.address_by_hostname(),
                  )
+    elif sexec == 'tp':
+      executor = parsl.ThreadPoolExecutor(
+                   max_threads=max_workers,
+                 )
     else:
         raise Exception(f"Invalid executor specifier: {sexec}")
     config = parsl.config.Config(
@@ -49,8 +53,8 @@ def myjob(name, trun):
     return f"""Finished job {name}"""
 
 @parsl.bash_app
-def mybash(name, trun, memmax):
-    return f"""desc-cpuburn {name} {trun} {memmax} 2>&1 >{name}.log; echo Finished job {name}"""
+def mybash(name, trun, memmax, stdout, stderr):
+    return f"""desc-cpuburn {name} {trun} {memmax}; echo Finished job {name}"""
 
 def parsltest(njob =4, tmax =10, memmax =10, clean =True, twait =5, max_workers =4, dsam =1, sexec ='ht'):
     faulthandler.register(signal.SIGUSR2.value)  # So kill -s SIGUSR2 <pid> will show trace.
@@ -74,16 +78,19 @@ def parsltest(njob =4, tmax =10, memmax =10, clean =True, twait =5, max_workers 
     print(f"{myname}: Job memory limit is {memmax} GB.")
     print(f"{myname}: Number of workers: {max_workers}.")
     print(f"{myname}: Monitor sampling time: {dsam} seconds.")
+    print(f"{myname}: Executor: {sexec}.")
     if clean: os.system('./clean')
     #parsl.clear()
     cfg = make_config(max_workers, dsam, sexec)
     msg = desc.sysmon.Notify()
-    thr = desc.sysmon.reporter('sysmon.csv', check=msg, dbg=3, thr=True)
+    thr = desc.sysmon.reporter('sysmon.csv', dt=dsam, check=msg, dbg=3, thr=True)
     parsl.load(cfg)
     jobs = []
     jobsDone = []
     for ijob in range(njob):
-        jobs.append( mybash(f'job{ijob:02}', tjob[ijob], memmax) )
+        fout = f"logo/jobout{ijob:02}.log"
+        ferr = f"loge/joberr{ijob:02}.log"
+        jobs.append( mybash(f"job{ijob:02}", tjob[ijob], memmax, stdout=fout, stderr=ferr) )
     showio = False
     if showio: print(f"{myname}: Disk I/O: {psutil.disk_io_counters()}")
     if showio: print(f"{myname}: Netw I/O: {psutil.net_io_counters()}")
@@ -92,7 +99,12 @@ def parsltest(njob =4, tmax =10, memmax =10, clean =True, twait =5, max_workers 
         while ijob < len(jobs):
             job = jobs[ijob]
             if job.done():
-                print(f"{myname}: Job result: {job.result()}")
+                #print(f"{myname}: Completed: {job}")
+                e = job.exception()
+                if e is None:
+                    print(f"{myname}: Job result: {job.result()}")
+                else:
+                    print(e)
                 jobsDone.append(job)
                 jobs.pop(ijob)
             else:
