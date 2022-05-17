@@ -15,10 +15,21 @@ import faulthandler
 import signal
 
 def make_config(max_workers =4, dsam =10, sexec='ht'):
+    '''
+    Build a config for an executor.
+      sexec - specifies the executor
+        ht = HighThroughput
+        wq = WorkQueue
+        tp = Threadpool
+      max_workers - # workers = target # concurrent tasks
+                    For wq, this is the total system memory in MB
+      dsam - Monitor sampling interval [sec]
+    '''
     if sexec == 'wq':
       executor = parsl.WorkQueueExecutor(
                    autolabel=True,
-                   autocategory=True
+                   autocategory=True,
+                   worker_options=f"--memory={max_workers}"
                  )
     elif sexec == 'ht':
       executor = parsl.HighThroughputExecutor(
@@ -52,17 +63,22 @@ def myjob(name, trun):
     time.sleep(trun)
     return f"""Finished job {name}"""
 
+# Bash app.
+#   stdout and stderr are ouput log file names.
+#   parsl_resource_specification is used by WorkQueue
 @parsl.bash_app
-def mybash(name, trun, memmax, stdout, stderr):
+def mybash(name, trun, memmax, stdout, stderr,
+           parsl_resource_specification={'cores': 1, 'memory': 1000, 'disk': 1000}):
     return f"""desc-cpuburn {name} {trun} {memmax}; echo Finished job {name}"""
 
-def parsltest(njob =4, tmax =10, memmax =10, clean =True, twait =5, max_workers =4, dsam =1, sexec ='ht'):
+def parsltest(njob =4, tmax =10, memmax =10, clean =False, twait =5, max_workers =4, dsam =1, sexec ='ht'):
     faulthandler.register(signal.SIGUSR2.value)  # So kill -s SIGUSR2 <pid> will show trace.
     myname = 'parsltest'
     print(f"{myname}Welcome to parsltest")
     print(f"{myname}: Parsl version is {parsl.version.VERSION}")
     print(f"{myname}: Desc-sysmon version is {desc.sysmon.__version__}")
     tjob = []
+    res_spec = None
     if njob <= 0:
         print("f{myname}: Running no jobs.")
     elif njob == 1:
@@ -77,8 +93,14 @@ def parsltest(njob =4, tmax =10, memmax =10, clean =True, twait =5, max_workers 
         print(f"{myname}: Running {njob} jobs for {min(tjob):.1f} - {max(tjob):.1f} sec.")
     print(f"{myname}: Job memory limit is {memmax} GB.")
     print(f"{myname}: Number of workers: {max_workers}.")
+    if sexec == 'wq':
+        max_workers = int(1024*memmax*max_workers)
+        res_spec = {'cores': 1, 'memory': 1024*int(memmax), 'disk': 1000}
+        print(f"{myname}: System memory limit: {max_workers} MB.")
+        print(f"{myname}: Resource spec: {res_spec}.")
     print(f"{myname}: Monitor sampling time: {dsam} seconds.")
     print(f"{myname}: Executor: {sexec}.")
+    # Resource specs for the WorkQueue executor.
     if clean: os.system('./clean')
     #parsl.clear()
     cfg = make_config(max_workers, dsam, sexec)
@@ -90,7 +112,9 @@ def parsltest(njob =4, tmax =10, memmax =10, clean =True, twait =5, max_workers 
     for ijob in range(njob):
         fout = f"logo/jobout{ijob:02}.log"
         ferr = f"loge/joberr{ijob:02}.log"
-        jobs.append( mybash(f"job{ijob:02}", tjob[ijob], memmax, stdout=fout, stderr=ferr) )
+        jobs.append( mybash(f"job{ijob:02}", tjob[ijob], memmax,
+                     stdout=fout, stderr=ferr,
+                     parsl_resource_specification=res_spec) )
     showio = False
     if showio: print(f"{myname}: Disk I/O: {psutil.disk_io_counters()}")
     if showio: print(f"{myname}: Netw I/O: {psutil.net_io_counters()}")
