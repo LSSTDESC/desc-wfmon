@@ -243,15 +243,19 @@ class MonDbReader:
                     tab[cnam] = tab[cnam].apply(lambda x: x if (x is None) else self.time_from_string(x) - self.t0s[0])
         # If any workflow end times have not been recorded, use the last entry in the resource table.
         # Also add each worflow time range to self.workflow_time_ranges
+        # 17may2022 - Use task table if resource table is empty.
         cwkf = 'time_completed'
-        res = self.table('resource')
-        cres = 'timestamp'
+        tbl = self.table('resource')
+        cend = 'timestamp'
+        if len(tbl) == 0:
+            tbl = self.table('task')
+            cend = 'task_time_returned'
         for iwkf in range(0, nwkf):
             if wkf[cwkf][iwkf] is None:
-                tmax = max(res[cres])
+                tmax = max(tbl[cend])
                 if iwkf+1 < nwkf:
-                    qry = cres + '<' + str(wkf['time_began'][iwkf+1])
-                    ttmp = max(res.query(qry)[cres])
+                    qry = cend + '<' + str(wkf['time_began'][iwkf+1])
+                    ttmp = max(tbl.query(qry)[ctbl])
                     if ttmp is not None: tmax = ttmp
                 wkf.at[iwkf, cwkf] = tmax
             t1 = wkf['time_began'][iwkf]
@@ -455,12 +459,23 @@ class MonDbReader:
     def build_procsum(self, dodelta=True):
         """Build the procsum table which sums resources in bins of sampling time."""
         myname = self.__class__.__name__ + "::build_procsum"
+        # Assign an empty frame if there are no resource entries.
+        res = self.table('resource')
+        if res is None or len(res) == 0:
+            if self.dbg >= 1: print(f"""{myname}: No resources found and so procsum tables are empty.""")
+            newdf = pandas.DataFrame()
+            self._tables['procsum'] = newdf
+            self._tables['procsumDelta'] = newdf
+            self._tables['procsumNoDelta'] = newdf
+            return newdf
+        # Assign name for the table.
         if dodelta:
             msg = "with deltas"
             savename = 'procsumDelta'
         else:
             msg = "without deltas"
             savename = 'procsumNoDelta'
+        # Return exsting table.
         if savename in self.table_names():
             if self.dbg >= 1: print(f"""{myname}: Table procsum {msg} was already built.""")
             self._tables['procsum'] = self._tables[savename]
