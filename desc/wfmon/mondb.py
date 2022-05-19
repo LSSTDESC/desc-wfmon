@@ -50,6 +50,8 @@ class MonDbReader:
         self._con = None
         self._tables = {}
         self.nwarnNoOffset = 0
+        self._chain_prompt_count = None # Number of worker chains that start before any tries end
+        self._chain_late_count = None   # Number of worker chains that start after a try has ended
 
         """Construct from the path to the monitoring DB file [monitoring.db]."""
         if len(filename): self.filename = filename
@@ -638,7 +640,63 @@ class MonDbReader:
             self._taskcounts = tcs
         if state is None: return
         return self._taskcounts[runidx][state]
-        
+
+    def chaintasks(self):
+        """
+        Build task chains with 1-1 associations between the end of one task and start of
+        first subsequent unassociated task.
+        The following columns are added to the try table:
+          last_try - Index of the associated try preceding this.
+          next_try - Index of the associated try following this.
+          latency - Time [sec] btween the end of the previous try and the start of this.
+        The try at the start of each chain will have last_try and latency set to None.
+        The try at the end of each chain will have next_try set to None.
+        The tries are processed in order of increasing end time. The unassociated try with
+        the first start time after that try end time is associated.
+        This should provide a reasonable estimate of latencies for a fixed number of workers
+        with possibility of chain swaps when two tries end near the same time. The mean
+        latency should still be correct in such a case (*I think*).
+        Two values are recorded in this object:
+          _chain_prompt_count - Number of chains that start before any tries end
+          _chain_late_count - Number of chains that start after a try has ended
+        The sum of these is the total number of chains.
+        A value of zero for the latter suggests the number of workers was fixed but doesn't
+        guarantee it.
+        """
+        if self._chain_prompt_count is not None: return
+        ttr = self.table('try')
+        cnam1 = 'task_try_time_running'
+        cnam2 = 'task_try_time_returned'
+        ttr1 = ttr.sort_values(by=[cnam1])
+        ttr2 = ttr.sort_values(by=[cnam2])
+        ttr1.reset_index()
+        loc1 = 0
+        first = True
+        self._chain_late_count = 0
+        for i2, row2 in ttr2.iterrows():
+            t2 = row2[cnam2]
+            nskip = 0
+            while loc1 < len(ttr1):
+                i1 = ttr1.index[loc1]
+                t1 = ttr1.iloc[loc1][cnam1]
+                loc1 += 1
+                if t1 > t2:
+                    ttr.at[i1, 'last_try'] = i2
+                    ttr.at[i2, 'next_try'] = i1
+                    ttr.at[i1, 'latency'] = t1 - t2
+                    break
+                nskip += 1
+            if first:
+                self._chain_prompt_count = nskip
+                first = False
+            else:
+                self._chain_late_count += nskip
+
+    def taskchain_count(self, opt='all'):
+        """Return the number of task chains."""
+        if opt ==    'all': return self._chain_prompt_count + self._chain_late_count
+        if opt == 'prompt': return self._chain_prompt_count
+        if opt ==   'late': return self._chain_late_count
 
 import unittest
 
