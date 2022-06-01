@@ -63,13 +63,28 @@ def myjob(name, trun):
     time.sleep(trun)
     return f"""Finished job {name}"""
 
-# Bash app.
+# Bash app which runs for fixed time.
 #   stdout and stderr are ouput log file names.
 #   parsl_resource_specification is used by WorkQueue
 @parsl.bash_app
-def mybash(name, trun, memmax, stdout, stderr,
-           parsl_resource_specification={'cores': 1, 'memory': 1000, 'disk': 1000}):
-    return f"""desc-cpuburn {name} {trun} {memmax}; echo Finished job {name}"""
+def mybash_tfix(name, trun, memmax, outdir, stdout, stderr,
+                parsl_resource_specification={'cores': 1, 'memory': 1000, 'disk': 1000}):
+    scom = f"desc-cpuburn {name} {trun} {memmax} 0 10000 1 {outdir}; echo Finished job {name}"
+    print(f"mybash_tfix: {scom}")
+    return scom
+
+# Bash app which runs a fixed numnber instructions.
+# Replace time limt with anestimate for the max nuymber of waveforms
+#   stdout and stderr are ouput log file names.
+#   parsl_resource_specification is used by WorkQueue
+@parsl.bash_app
+def mybash_ifix(name, trun, memmax, ngen, outdir, stdout, stderr,
+                parsl_resource_specification={'cores': 1, 'memory': 1000, 'disk': 1000}):
+    nwfPerSec = [730, 400, 300]
+    nwfmax = int(trun*nwfPerSec[ngen])
+    scom = f"desc-cpuburn {name} {0} {memmax} {nwfmax} 10000 {ngen} {outdir}; echo Finished job {name}"
+    print(f"mybash_ifix: {scom}")
+    return scom
 
 def parsltest(njob =4, tmax =10, memmax =10, clean =False, twait =5, max_workers =4, dsam =1, sexec ='ht'):
     faulthandler.register(signal.SIGUSR2.value)  # So kill -s SIGUSR2 <pid> will show trace.
@@ -80,9 +95,9 @@ def parsltest(njob =4, tmax =10, memmax =10, clean =False, twait =5, max_workers
     tjob = []
     res_spec = None
     if njob <= 0:
-        print("f{myname}: Running no jobs.")
+        print(f"{myname}: Running no jobs.")
     elif njob == 1:
-        print("f{myname}: Running 1 job for {tmax:.1f} sec.")
+        print(f"{myname}: Running 1 job for {tmax:.1f} sec.")
         tjob.append(tmax)
     else:
         t0 = 0.5*tmax
@@ -109,10 +124,19 @@ def parsltest(njob =4, tmax =10, memmax =10, clean =False, twait =5, max_workers
     parsl.load(cfg)
     jobs = []
     jobsDone = []
+    ngen = 1
+    pwd = os.getcwd()
+    outdir =    f"{pwd}/out"
+    logoutdir = f"{pwd}/logo"
+    logerrdir = f"{pwd}/loge"
+    for dir in [outdir, logoutdir, logerrdir]:
+        if not os.path.isdir(dir) and not os.path.islink(dir):
+            print(f"{myname}: Creating directory {dir}")
+            os.mkdir(dir)
     for ijob in range(njob):
         fout = f"logo/jobout{ijob:02}.log"
         ferr = f"loge/joberr{ijob:02}.log"
-        jobs.append( mybash(f"job{ijob:02}", tjob[ijob], memmax,
+        jobs.append( mybash_ifix(f"job{ijob:02}", tjob[ijob], memmax, ngen, outdir,
                      stdout=fout, stderr=ferr,
                      parsl_resource_specification=res_spec) )
     showio = False
