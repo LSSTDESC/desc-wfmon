@@ -89,9 +89,9 @@ def mybash_ifix(name, trun, memmax, ngen, outdir, stdout, stderr,
 def parsltest(njob =4, tmax =10, memmax =10, clean =False, twait =5, max_workers =4, dsam =1, sexec ='ht'):
     faulthandler.register(signal.SIGUSR2.value)  # So kill -s SIGUSR2 <pid> will show trace.
     myname = 'parsltest'
-    print(f"{myname}Welcome to parsltest")
+    print(f"{myname}: Welcome to parsltest")
+    print(f"{myname}: Parsltest version is {desc.parsltest.__version__}")
     print(f"{myname}: Parsl version is {parsl.version.VERSION}")
-    print(f"{myname}: Desc-sysmon version is {desc.sysmon.__version__}")
     tjob = []
     res_spec = None
     if njob <= 0:
@@ -178,6 +178,7 @@ def main_parsltest():
         print(f"  DSAM - Sampling interval in seconds [10].")
         print(f"  MMAX - Memory limit per job in GB [10].")
         print(f"  SEXC - Executor: ht, wq or tp [xx]")
+        print(f"parsltest version is {desc.parsltest.__version__}")
         return 0
     njob = 0
     tmax = 60.0
