@@ -27,8 +27,6 @@ def make_config(max_workers =4, dsam =10, sexec='ht'):
     '''
     if sexec == 'wq':
       executor = parsl.WorkQueueExecutor(
-                   autolabel=True,
-                   autocategory=True,
                    worker_options=f"--memory={max_workers}"
                  )
     elif sexec == 'ht':
