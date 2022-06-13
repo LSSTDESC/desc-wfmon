@@ -165,9 +165,14 @@ def parsltest(njob =4, tmax =10, memmax =10, clean =False, twait =5, max_workers
     #time.sleep(dsam)
     msg.set('Done')
     thr.join()
+    # Run user closeout script. E.g. to delete data files.
+    os.system('./closeout')
     print(f"{myname}: Exiting.")
 
 def main_parsltest():
+    if len(sys.argv) > 1 and sys.argv[1] == '-v':
+        print(f"{desc.parsltest.__version__}")
+        return 0
     if len(sys.argv) > 1 and sys.argv[1] == '-h':
         print(f"Usage: {sys.argv[0]} NJOB NSEC NWRK DSAM MMAX")
         print(f"  NJOB - Number of jobs [0].")
