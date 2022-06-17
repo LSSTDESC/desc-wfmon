@@ -89,7 +89,9 @@ def parsltest(njob =4, tmax =10, memmax =10, clean =False, twait =5, max_workers
     myname = 'parsltest'
     print(f"{myname}: Welcome to parsltest")
     print(f"{myname}: Parsltest version is {desc.parsltest.__version__}")
+    print(f"{myname}: Parsltest location is {desc.parsltest.__file__}")
     print(f"{myname}: Parsl version is {parsl.version.VERSION}")
+    print(f"{myname}: Parsl location is {parsl.__file__}")
     tjob = []
     res_spec = None
     if njob <= 0:
