@@ -629,8 +629,8 @@ class MonDbReader:
                     cnam_try = 'task_try_time_' + snam
                     cnam_tcs = row.task_idx
                     time = getattr(row, cnam_try) - t1
-                    sel = mytcs['time'] > time
-                    mytcs.loc[sel, cnam_tcs] += 1
+                    count = ((mytcs['time'] + delt - time)/delt).clip(0,1)
+                    mytcs.loc[:, cnam_tcs] += count
             # Add a column with sum over tasks.
             for irun in range(nrun):
                 for snam in snams:
