@@ -44,7 +44,7 @@ class MonDbReader:
         self.t0 = 0                     # Time offset (sec) for all fixed times.
         self.t0s = []                   # Time offset (sec) for each run.
         self.monitoring_interval = None
-        self.taskprocs = [[], []]       # Dictionary of nodeleta,delta taskproc tables for each run index.
+        self.taskprocs = [[], []]       # Dictionary of nodelta,delta taskproc tables for each run index.
         self._taskcount_delt = 0        # Time spacing for the task count tables.
         self._taskcounts = []           # Run-indexed array of task-indexed arrays of time:state dfs.
         self._con = None
@@ -274,7 +274,7 @@ class MonDbReader:
             if self.dbg >= 3: print(f"""{myname}: Time range for run {iwkf} is [{t1}, {t2}].""")
             self.workflow_time_ranges.append((t1, t2))
             for itp in range(2):
-              self.taskprocs[itp].append({})
+                self.taskprocs[itp].append({})
         # Set flag.
         self.fixed.append('times')
 
