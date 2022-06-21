@@ -61,30 +61,40 @@ def myjob(name, trun):
     time.sleep(trun)
     return f"""Finished job {name}"""
 
-# Bash app which runs for fixed time.
+# Bash app which does nothing cpuburn for a fixed time.
 #   stdout and stderr are ouput log file names.
 #   parsl_resource_specification is used by WorkQueue
 @parsl.bash_app
-def mybash_tfix(name, trun, memmax, outdir, stdout, stderr,
+def mybash_sleep(name, trun, memmax, outdir, ngen, stdout, stderr,
                 parsl_resource_specification={'cores': 1, 'memory': 1000, 'disk': 1000}):
-    scom = f"desc-cpuburn {name} {trun} {memmax} 0 10000 1 {outdir}; echo Finished job {name}"
-    print(f"mybash_tfix: {scom}")
+    scom = f"time sleep {trun}; echo Finished job {name}"
+    print(f"mybash_sleep: {scom}")
     return scom
 
-# Bash app which runs a fixed numnber instructions.
+# Bash app which runs cpuburn for a fixed time.
+#   stdout and stderr are ouput log file names.
+#   parsl_resource_specification is used by WorkQueue
+@parsl.bash_app
+def mybash_cpuburn_tfix(name, trun, memmax, ngen, outdir, stdout, stderr,
+                parsl_resource_specification={'cores': 1, 'memory': 1000, 'disk': 1000}):
+    scom = f"desc-cpuburn {name} {trun} {memmax} 0 10000 1 {outdir}; echo Finished job {name}"
+    print(f"mybash_cpuburn_tfix: {scom}")
+    return scom
+
+# Bash app which runs cpuburn for a fixed number of instructions.
 # Replace time limt with anestimate for the max nuymber of waveforms
 #   stdout and stderr are ouput log file names.
 #   parsl_resource_specification is used by WorkQueue
 @parsl.bash_app
-def mybash_ifix(name, trun, memmax, ngen, outdir, stdout, stderr,
+def mybash_cpuburn_ifix(name, trun, memmax, ngen, outdir, stdout, stderr,
                 parsl_resource_specification={'cores': 1, 'memory': 1000, 'disk': 1000}):
     nwfPerSec = [730, 400, 300]
     nwfmax = int(trun*nwfPerSec[ngen])
     scom = f"desc-cpuburn {name} {0} {memmax} {nwfmax} 10000 {ngen} {outdir}; echo Finished job {name}"
-    print(f"mybash_ifix: {scom}")
+    print(f"mybash_cpuburn_ifix: {scom}")
     return scom
 
-def parsltest(njob =4, tmax =10, memmax =10, clean =False, twait =5, max_workers =4, dsam =1, sexec ='ht'):
+def parsltest(jobtype, njob =4, tmax =10, memmax =10, clean =False, twait =5, max_workers =4, dsam =1, sexec ='ht'):
     faulthandler.register(signal.SIGUSR2.value)  # So kill -s SIGUSR2 <pid> will show trace.
     myname = 'parsltest'
     print(f"{myname}: Welcome to parsltest")
@@ -106,6 +116,7 @@ def parsltest(njob =4, tmax =10, memmax =10, clean =False, twait =5, max_workers
             tjob.append(tmax - ijob*dtjob)
         random.shuffle(tjob)
         print(f"{myname}: Running {njob} jobs for {min(tjob):.1f} - {max(tjob):.1f} sec.")
+    print(f"{myname}: Job type is {jobtype}.")
     print(f"{myname}: Job memory limit is {memmax} GB.")
     print(f"{myname}: Number of workers: {max_workers}.")
     if sexec == 'wq':
@@ -134,11 +145,16 @@ def parsltest(njob =4, tmax =10, memmax =10, clean =False, twait =5, max_workers
             print(f"{myname}: Creating directory {dir}")
             os.mkdir(dir)
     for ijob in range(njob):
-        fout = f"logo/jobout{ijob:02}.log"
-        ferr = f"loge/joberr{ijob:02}.log"
-        jobs.append( mybash_ifix(f"job{ijob:02}", tjob[ijob], memmax, ngen, outdir,
-                     stdout=fout, stderr=ferr,
-                     parsl_resource_specification=res_spec) )
+        fout = f"logo/jobout{ijob:04}.log"
+        ferr = f"loge/joberr{ijob:04}.log"
+        sjob  = f"mybash_{jobtype}('job{ijob:04}', tjob[ijob], memmax, ngen, outdir, "
+        sjob += f"stdout=fout, stderr=ferr, parsl_resource_specification=res_spec)"
+        print(f"Creating: {sjob}")
+        print(f"  fout: {fout}")
+        print(f"  ferr: {ferr}")
+        jobs.append(eval(sjob))
+        assert(jobs[-1] is not None)
+        #print(f"Created {jobs[-1]}")
     showio = False
     if showio: print(f"{myname}: Disk I/O: {psutil.disk_io_counters()}")
     if showio: print(f"{myname}: Netw I/O: {psutil.net_io_counters()}")
@@ -177,6 +193,7 @@ def main_parsltest():
         return 0
     if len(sys.argv) > 1 and sys.argv[1] == '-h':
         print(f"Usage: {sys.argv[0]} NJOB NSEC NWRK DSAM MMAX")
+        print(f"  JTYP - Job type (cpuburn_ifix, sleep, ...)")
         print(f"  NJOB - Number of jobs [0].")
         print(f"  NSEC - Run time for the Nth job.")
         print(f"  NWRK - Number of worker nodes [4].")
@@ -192,17 +209,19 @@ def main_parsltest():
     mmax = 10
     sexc = 'xx'
     if len(sys.argv) > 1:
-        njob = int(sys.argv[1])
+        jtyp = sys.argv[1]
     if len(sys.argv) > 2:
-        tmax = float(sys.argv[2])
+        njob = int(sys.argv[2])
     if len(sys.argv) > 3:
-        nwrk = int(sys.argv[3])
+        tmax = float(sys.argv[3])
     if len(sys.argv) > 4:
-        dsam = int(sys.argv[4])
-        if dsam == 0:
-            dsam = float(sys.argv[4])
+        nwrk = int(sys.argv[4])
     if len(sys.argv) > 5:
-        mmax = float(sys.argv[5])
+        dsam = int(sys.argv[5])
+        if dsam == 0:
+            dsam = float(sys.argv[5])
     if len(sys.argv) > 6:
-        sexc = sys.argv[6]
-    if njob > 0: parsltest(njob, tmax, max_workers=nwrk, dsam=dsam, memmax=mmax, sexec=sexc)
+        mmax = float(sys.argv[6])
+    if len(sys.argv) > 7:
+        sexc = sys.argv[7]
+    if njob > 0: parsltest(jtyp, njob, tmax, max_workers=nwrk, dsam=dsam, memmax=mmax, sexec=sexc)
