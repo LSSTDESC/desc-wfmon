@@ -673,7 +673,7 @@ class MonDbReader:
         loc1 = 0
         first = True
         self._chain_late_count = 0
-        ttr['latency'] = 0
+        ttr['latency'] = 0.0
         for i2, row2 in ttr2.iterrows():
             t2 = row2[cnam2]
             nskip = 0
