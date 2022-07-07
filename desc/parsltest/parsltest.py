@@ -61,7 +61,7 @@ def myjob(name, trun):
     time.sleep(trun)
     return f"""Finished job {name}"""
 
-# Bash app which does nothing cpuburn for a fixed time.
+# Bash app which sleeps.
 #   stdout and stderr are ouput log file names.
 #   parsl_resource_specification is used by WorkQueue
 @parsl.bash_app
@@ -75,10 +75,10 @@ def mybash_sleep(name, trun, memmax, outdir, ngen, stdout, stderr,
 #   stdout and stderr are ouput log file names.
 #   parsl_resource_specification is used by WorkQueue
 @parsl.bash_app
-def mybash_cpuburn_tfix(name, trun, memmax, ngen, outdir, stdout, stderr,
+def mybash_tfix(name, trun, memmax, ngen, outdir, stdout, stderr,
                 parsl_resource_specification={'cores': 1, 'memory': 1000, 'disk': 1000}):
     scom = f"desc-cpuburn {name} {trun} {memmax} 0 10000 1 {outdir}; echo Finished job {name}"
-    print(f"mybash_cpuburn_tfix: {scom}")
+    print(f"mybash_tfix: {scom}")
     return scom
 
 # Bash app which runs cpuburn for a fixed number of instructions.
@@ -86,12 +86,12 @@ def mybash_cpuburn_tfix(name, trun, memmax, ngen, outdir, stdout, stderr,
 #   stdout and stderr are ouput log file names.
 #   parsl_resource_specification is used by WorkQueue
 @parsl.bash_app
-def mybash_cpuburn_ifix(name, trun, memmax, ngen, outdir, stdout, stderr,
+def mybash_ifix(name, trun, memmax, ngen, outdir, stdout, stderr,
                 parsl_resource_specification={'cores': 1, 'memory': 1000, 'disk': 1000}):
     nwfPerSec = [730, 400, 300]
     nwfmax = int(trun*nwfPerSec[ngen])
     scom = f"desc-cpuburn {name} {0} {memmax} {nwfmax} 10000 {ngen} {outdir}; echo Finished job {name}"
-    print(f"mybash_cpuburn_ifix: {scom}")
+    print(f"mybash_ifix: {scom}")
     return scom
 
 def parsltest(jobtype, njob =4, tmax =10, memmax =10, clean =False, twait =5, max_workers =4, dsam =1, sexec ='ht'):
@@ -193,7 +193,7 @@ def main_parsltest():
         return 0
     if len(sys.argv) > 1 and sys.argv[1] == '-h':
         print(f"Usage: {sys.argv[0]} NJOB NSEC NWRK DSAM MMAX")
-        print(f"  JTYP - Job type (cpuburn_ifix, sleep, ...)")
+        print(f"  JTYP - Job type (fix, sleep, ...)")
         print(f"  NJOB - Number of jobs [0].")
         print(f"  NSEC - Run time for the Nth job.")
         print(f"  NWRK - Number of worker nodes [4].")
