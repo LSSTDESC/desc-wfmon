@@ -587,7 +587,7 @@ class MonDbReader:
         t2 = fac*wkf['time_completed'][iwkf]
         return (t1, t2)
 
-    def taskcounts(self, state=None, runidx=0, delt=None):
+    def taskcounts(self, state=None, runidx=0, delt=None, force=False):
         """
         Return a dataframe time:0:1:...:(ntsk-1):all with the number of tasks for each
         task index for the given state and run index.
@@ -595,10 +595,12 @@ class MonDbReader:
         The values for all states and runs are evaluated on the first call or if
         delt >0 changes.
         """
+        myname = 'TestMonDbReader:taskcounts'
         nrun = self.nrun
         if nrun == 0: return None
         if runidx >= nrun: return None
-        if delt is not None and (len(self._taskcounts) != nrun or delt != self.taskcount_delt):
+        if delt is not None and (force or len(self._taskcounts) != nrun or delt != self.taskcount_delt):
+            if self.dbg > 0: print(f"{myname}: Evaluating taskcounts.")
             ntsk = len(self.task_names)
             snams = ['launched', 'running', 'returned']
             tnams = list(range(ntsk))
@@ -613,6 +615,7 @@ class MonDbReader:
                 t2 = self.workflow_time_ranges[irun][1]
                 toff = t1
                 ntim = int((t2-t1)/delt) + 1
+                empty_count = pandas.Series(ntim*[0], name='time')  # When task does not have time for a state, all counts are zero
                 df = pandas.DataFrame(0, index=range(ntim), columns=cnams)
                 df['time'] = numpy.arange(t1-toff, t2-toff+10*delt, delt)[0:ntim]
                 tcs.append({})
@@ -629,14 +632,29 @@ class MonDbReader:
                     cnam_try = 'task_try_time_' + snam
                     cnam_tcs = row.task_idx
                     time = getattr(row, cnam_try) - t1
-                    count = ((mytcs['time'] + delt - time)/delt).clip(0,1)
-                    mytcs.loc[:, cnam_tcs] += count
+                    if not time == time:     # Meaning the task never reached the state
+                        count = empty_count
+                    else:
+                        count = ((mytcs['time'] + delt - time)/delt).clip(0,1)
+                    if count.isnull().sum():
+                        print(f"{myname}: ERROR: Skipping task {row.task_id} {snam} with nan values: count = \n{count}")
+                        print(mytcs)
+                        print('---------------------------------------')
+                        print(f"{myname}: delt = {delt}")
+                        print(f"{myname}: t1 = {t1}")
+                        print('---------------------------------------')
+                        print(f"time: {time}")
+                        print('---------------------------------------')
+                        print(f"Row: \n{row}")
+                        print('=======================================')
+                    else:
+                        mytcs.loc[:, cnam_tcs] += count
             # Add a column with sum over tasks.
             for irun in range(nrun):
                 for snam in snams:
                     mytcs = tcs[irun][snam]
                     mytcs['all'] = mytcs[tnams].sum(1)
-                    if self.dbg>=2: print(f"irun,snam,nrow: {irun}, {snam}, {len(mytcs)}")
+                    if self.dbg>=2: print(f"{myname}:irun,snam,nrow: {irun}, {snam}, {len(mytcs)}")
             self._taskcounts = tcs
         if state is None: return
         return self._taskcounts[runidx][state]
