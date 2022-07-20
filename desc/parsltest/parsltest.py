@@ -14,7 +14,7 @@ import random
 import faulthandler
 import signal
 
-def make_config(max_workers =4, dsam =10, sexec='ht'):
+def make_config(max_workers =4, dsam =10, sexec='ht', nnod=0):
     '''
     Build a config for an executor.
       sexec - specifies the executor
@@ -42,6 +42,9 @@ def make_config(max_workers =4, dsam =10, sexec='ht'):
                  )
     else:
         raise Exception(f"Invalid executor specifier: {sexec}")
+    if nnod > 0:
+        executor.provider.launcher = parsl.launchers.SrunLauncher(overrides='-K0 -k --slurmd-debug=verbose')
+        executor.provider.nodes_per_block = nnod
     config = parsl.config.Config(
        executors=[ executor ],
        monitoring=parsl.monitoring.monitoring.MonitoringHub(
@@ -94,7 +97,7 @@ def mybash_ifix(name, trun, memmax, ngen, outdir, stdout, stderr,
     print(f"mybash_ifix: {scom}")
     return scom
 
-def parsltest(jobtype, njob =4, tmax =10, memmax =10, clean =False, twait =5, max_workers =4, dsam =1, sexec ='ht'):
+def parsltest(jobtype, njob =4, tmax =10, memmax =10, clean =False, twait =5, max_workers =4, dsam =1, sexec ='ht', nnode=0):
     faulthandler.register(signal.SIGUSR2.value)  # So kill -s SIGUSR2 <pid> will show trace.
     myname = 'parsltest'
     print(f"{myname}: Welcome to parsltest")
@@ -122,14 +125,16 @@ def parsltest(jobtype, njob =4, tmax =10, memmax =10, clean =False, twait =5, ma
     if sexec == 'wq':
         max_workers = int(1024*memmax*max_workers)
         res_spec = {'cores': 1, 'memory': 1024*int(memmax), 'disk': 1000}
+        res_spec['running_time_min'] = tmax*1.1
         print(f"{myname}: System memory limit: {max_workers} MB.")
         print(f"{myname}: Resource spec: {res_spec}.")
     print(f"{myname}: Monitor sampling time: {dsam} seconds.")
     print(f"{myname}: Executor: {sexec}.")
+    print(f"{myname}: Number of nodes: {nnode}.")
     # Resource specs for the WorkQueue executor.
     if clean: os.system('./clean')
     #parsl.clear()
-    cfg = make_config(max_workers, dsam, sexec)
+    cfg = make_config(max_workers, dsam, sexec, nnode)
     msg = desc.sysmon.Notify()
     thr = desc.sysmon.reporter('sysmon.csv', dt=dsam, check=msg, dbg=3, thr=True)
     parsl.load(cfg)
@@ -192,7 +197,7 @@ def main_parsltest():
         print(f"{desc.parsltest.__version__}")
         return 0
     if len(sys.argv) > 1 and sys.argv[1] == '-h':
-        print(f"Usage: {sys.argv[0]} NJOB NSEC NWRK DSAM MMAX")
+        print(f"Usage: {sys.argv[0]} NJOB NSEC NWRK DSAM MMAX SEXC NNOD")
         print(f"  JTYP - Job type (fix, sleep, ...)")
         print(f"  NJOB - Number of jobs [0].")
         print(f"  NSEC - Run time for the Nth job.")
@@ -200,6 +205,7 @@ def main_parsltest():
         print(f"  DSAM - Sampling interval in seconds [10].")
         print(f"  MMAX - Memory limit per job in GB [10].")
         print(f"  SEXC - Executor: ht, wq or tp [xx]")
+        print(f"  NNOD - # worker nodes (0 is local submission)")
         print(f"parsltest version is {desc.parsltest.__version__}")
         return 0
     njob = 0
@@ -208,6 +214,7 @@ def main_parsltest():
     dsam = 10
     mmax = 10
     sexc = 'xx'
+    nnod = 0
     if len(sys.argv) > 1:
         jtyp = sys.argv[1]
     if len(sys.argv) > 2:
@@ -224,4 +231,6 @@ def main_parsltest():
         mmax = float(sys.argv[6])
     if len(sys.argv) > 7:
         sexc = sys.argv[7]
-    if njob > 0: parsltest(jtyp, njob, tmax, max_workers=nwrk, dsam=dsam, memmax=mmax, sexec=sexc)
+    if len(sys.argv) > 8:
+        nnod = int(sys.argv[8])
+    if njob > 0: parsltest(jtyp, njob, tmax, max_workers=nwrk, dsam=dsam, memmax=mmax, sexec=sexc, nnode=nnod)
