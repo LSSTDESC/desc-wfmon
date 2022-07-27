@@ -364,6 +364,7 @@ class MonDbReader:
         if runidx >= len(self.workflow_time_ranges):
             if self.dbg: print(f"""{myname}: ERROR: Run index {runidx} is out of range.""")
             return None
+        if self.dbg >= 2: print(f"{myname}: Building taskproc table for run {runidx} task {taskidx}.")
         # Columns for which we keep.
         colkeeps = ['timestamp', 'run_idx', 'task_idx', 'task_id', 'try_id']
         # Columns that we add.
@@ -517,18 +518,22 @@ class MonDbReader:
         if nrun == 0:
             if self.dbg: print(f"""{myname}: No workflow runs found.""")
             return
-        if self.dbg: print(f"""{myname}: Building procsum for {nrun} workflow runs.""")
+        if self.dbg: print(f"""{myname}: Building procsum for {nrun} workflow run{'s' if nrun !=1 else ''}.""")
         if dodelta:
             mrgdfs = []
+            count = 0
             for irun in range(0, nrun):
                 tids = set(self.table('resource').query(f"""run_idx=={irun}""")['task_id'].tolist())
-                if self.dbg >= 3: print(f"""{myname}:   Workflow {irun} has {len(tids)} task IDs.""")
+                if self.dbg >= 1: print(f"""{myname}:   Workflow {irun} has {len(tids)} task IDs.""")
                 for tid in tids:
                     dbgsav = self.dbg
                     self.dbg = 0
+                    if self.dbg >= 1 and count%1000 ==0:
+                        print(f"{myname}:   {count:8}: Processing run {irun} task{tid}.")
                     mrgdfs.append(self.taskproc(irun, tid))
                     self.dbg = dbgsav
             olddf = pandas.concat(mrgdfs)
+            if self.dbg >= 1: print(f"{myname}:   Finished processing tasks.")
             pidnam = 'proc_pid'
         else:
             res = self.table('resource')
