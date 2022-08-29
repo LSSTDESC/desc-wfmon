@@ -14,7 +14,7 @@ from IPython.display import display
 class MonDbReader:
     filename = "monitoring.db"
 
-    def __init__(self, filename ='./monitoring.db', fix=True, dodelta=False, dbg=0):
+    def __init__(self, filename ='./monitoring.db', fix=True, dodelta=False, run_id=None, dbg=0):
         """
         MuonDbReader provides access to a parsl monitoring database which has information
         about workflows and their tasks including start and stop times and process information.
@@ -55,7 +55,7 @@ class MonDbReader:
 
         """Construct from the path to the monitoring DB file [monitoring.db]."""
         if len(filename): self.filename = filename
-        self._connect()
+        self._connect(run_id)
         if fix: self.fix(dodelta)
 
     def __getitem__(self, tnam):
@@ -65,7 +65,7 @@ class MonDbReader:
         """len(obj) returns the number of tables."""
         return len(self._tables)
 
-    def _connect(self, reconnect = False):
+    def _connect(self, run_id=None, reconnect=False):
         """Connect to DB and read tables (if needed) and return connection string."""
         myname = self.__class__.__name__ + "::_connect"
         if self._con is None or reconnect:
@@ -77,9 +77,29 @@ class MonDbReader:
                print(f"""{myname}: ERROR: Unable to open file {self.filename}""")
                print(sys.exc_info()[1])
                return None
+           rqry = '*'
+           if run_id is None:
+               wkf = pandas.read_sql_query(f"""select * from workflow""", self._con)
+               nwk = len(wkf)
+               if nwk == 0:
+                   print(f"{myname}: ERROR: No entries found in workflow table.")
+                   return
+               elif nwk > 1:
+                   wr = wkf.run_id.str.len().max()
+                   wn = wkf.workflow_name.str.len().max()
+                   wv = wkf.workflow_version.str.len().max()
+                   print(f"{myname}: ERROR: Workflow table has multiple runs.")
+                   print(f"{myname}: Please specify run_id from the following:")
+                   print(f"{myname}: {'run_id':>{wr}}  {'workflow_name':>{wn}}  {'workflow_version':>{wv}}")
+                   for idx, row in wkf.iterrows():
+                       print(f"{myname}: {row['run_id']:>{wr}}  {row['workflow_name']:>{wn}}  {row['workflow_version']:>{wv}}")
+                   return
            tnams = list(pandas.read_sql_query("select name from sqlite_master where type='table'", self._con)['name'])
            for tnam in tnams:
-               self._tables[tnam] = pandas.read_sql_query(f"""select * from {tnam}""", self._con)
+               qry = f"select * from {tnam}"
+               if run_id is not None:
+                   qry += f" where run_id='{run_id}'"
+               self._tables[tnam] = pandas.read_sql_query(qry, self._con)
                self.remove_counts[tnam] = 0
         return self._con       
 
@@ -284,7 +304,7 @@ class MonDbReader:
           task_names[tidx] - Task function name for each task index.
           task_name_counts[tidx] - Number of task IDs associated with each task index.
           task_index[ridx][tid] - Task index for each run index and task ID.
-        The task table column 'task_func_name' is replaced with 'task_idx' holding the task index.
+        The task table column 'task_func_name' is replaced with '' holding the itask index.
         Task indices ('task_idx') to all tables that have task IDs ('task_id').
         """
         myname = self.__class__.__name__ + "::fix_tasks"
@@ -336,7 +356,11 @@ class MonDbReader:
                 for row in tab.itertuples():
                     run_idx = row.run_idx
                     task_id = row.task_id
-                    vals.append(self.task_index[run_idx][task_id])
+                    if task_id < len(self.task_index[run_idx]):
+                        vals.append(self.task_index[run_idx][task_id])
+                    else:
+                        vals.append(-1)
+                        print(f"({myname}: WARNING: Ignoring unknown task {task_id} in table {tnam}")
                 icol = tab.columns.get_loc('task_id') + 1
                 tab.insert(icol, 'task_idx', vals)
             else:
@@ -521,17 +545,18 @@ class MonDbReader:
         if self.dbg: print(f"""{myname}: Building procsum for {nrun} workflow run{'s' if nrun !=1 else ''}.""")
         if dodelta:
             mrgdfs = []
-            count = 0
             for irun in range(0, nrun):
                 tids = set(self.table('resource').query(f"""run_idx=={irun}""")['task_id'].tolist())
                 if self.dbg >= 1: print(f"""{myname}:   Workflow {irun} has {len(tids)} task IDs.""")
+                count = 0
                 for tid in tids:
-                    dbgsav = self.dbg
-                    self.dbg = 0
                     if self.dbg >= 1 and count%1000 ==0:
                         print(f"{myname}:   {count:8}: Processing run {irun} task{tid}.")
+                    dbgsav = self.dbg
+                    self.dbg = 0
                     mrgdfs.append(self.taskproc(irun, tid))
                     self.dbg = dbgsav
+                    count = count + 1
             olddf = pandas.concat(mrgdfs)
             if self.dbg >= 1: print(f"{myname}:   Finished processing tasks.")
             pidnam = 'proc_pid'
