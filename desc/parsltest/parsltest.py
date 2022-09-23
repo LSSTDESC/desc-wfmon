@@ -45,13 +45,16 @@ def make_config(max_workers =4, dsam =10, sexec='ht', nnod=0):
     if nnod > 0:
         executor.provider.launcher = parsl.launchers.SrunLauncher(overrides='-K0 -k --slurmd-debug=verbose')
         executor.provider.nodes_per_block = nnod
+    enabled = dsam > 0
+    interval = dsam if enabled else 999
     config = parsl.config.Config(
        executors=[ executor ],
        monitoring=parsl.monitoring.monitoring.MonitoringHub(
            hub_address=parsl.addresses.address_by_hostname(),
            hub_port=55055,
            monitoring_debug=False,
-           resource_monitoring_interval=dsam,
+           resource_monitoring_enabled=enabled,
+           resource_monitoring_interval=interval,
        ),
        strategy=None
     )
@@ -136,7 +139,8 @@ def parsltest(jobtype, njob =4, tmax =10, memmax =10, clean =False, twait =5, ma
     #parsl.clear()
     cfg = make_config(max_workers, dsam, sexec, nnode)
     msg = desc.sysmon.Notify()
-    thr = desc.sysmon.reporter('sysmon.csv', dt=dsam, check=msg, dbg=3, thr=True)
+    dsamsys = dsam if dsam > 0 else 5
+    thr = desc.sysmon.reporter('sysmon.csv', dt=dsamsys, check=msg, dbg=3, thr=True)
     parsl.load(cfg)
     jobs = []
     jobsDone = []
@@ -225,8 +229,8 @@ def main_parsltest():
         nwrk = int(sys.argv[4])
     if len(sys.argv) > 5:
         dsam = int(sys.argv[5])
-        if dsam == 0:
-            dsam = float(sys.argv[5])
+        #if dsam == 0:
+        #    dsam = float(sys.argv[5])
     if len(sys.argv) > 6:
         mmax = float(sys.argv[6])
     if len(sys.argv) > 7:
