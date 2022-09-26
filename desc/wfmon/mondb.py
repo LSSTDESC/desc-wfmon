@@ -661,10 +661,11 @@ class MonDbReader:
                     mytcs = mytcss[snam]
                     cnam_try = 'task_try_time_' + snam
                     cnam_tcs = row.task_idx
-                    time = getattr(row, cnam_try) - t1
-                    if not time == time:     # Meaning the task never reached the state
+                    rawtime = getattr(row, cnam_try)
+                    if rawtime is None or not rawtime==rawtime:     # Meaning the task never reached the state
                         count = empty_count
                     else:
+                        time = rawtime - t1
                         count = ((mytcs['time'] + delt - time)/delt).clip(0,1)
                     if count.isnull().sum():
                         print(f"{myname}: ERROR: Skipping task {row.task_id} {snam} with nan values: count = \n{count}")
