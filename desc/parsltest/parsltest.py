@@ -14,6 +14,8 @@ import random
 import faulthandler
 import signal
 
+function_dir = ''       # for 1.3.0-dev+desc-2022.09.26b only e.g. use '/tmp'
+
 def make_config(max_workers =4, dsam =10, sexec='ht', nnod=0):
     '''
     Build a config for an executor.
@@ -26,9 +28,15 @@ def make_config(max_workers =4, dsam =10, sexec='ht', nnod=0):
       dsam - Monitor sampling interval [sec]
     '''
     if sexec == 'wq':
-      executor = parsl.WorkQueueExecutor(
-                   worker_options=f"--memory={max_workers}"
-                 )
+      if len(function_dir):
+         executor = parsl.WorkQueueExecutor(
+                      worker_options=f"--memory={max_workers}",
+                      function_dir="/tmp"
+                    )
+      else:
+          executor = parsl.WorkQueueExecutor(
+                       worker_options=f"--memory={max_workers}",
+                     )
     elif sexec == 'ht':
       executor = parsl.HighThroughputExecutor(
                    label="local_htex",
@@ -42,7 +50,7 @@ def make_config(max_workers =4, dsam =10, sexec='ht', nnod=0):
                  )
     else:
         raise Exception(f"Invalid executor specifier: {sexec}")
-    if nnod > 0:
+    if nnod > 1:
         executor.provider.launcher = parsl.launchers.SrunLauncher(overrides='-K0 -k --slurmd-debug=verbose')
         executor.provider.nodes_per_block = nnod
     enabled = dsam > 0
@@ -108,6 +116,10 @@ def parsltest(jobtype, njob =4, tmax =10, memmax =10, clean =False, twait =5, ma
     print(f"{myname}: Parsltest location is {desc.parsltest.__file__}")
     print(f"{myname}: Parsl version is {parsl.version.VERSION}")
     print(f"{myname}: Parsl location is {parsl.__file__}")
+    dotrace = 0     # 0 for no trace, 1 at end of job, 2 after all tasks are created
+    if dotrace:
+        print(f"Enabling parsl tracing.")
+        parsl.trace.trace_by_dict=True
     tjob = []
     res_spec = None
     if njob <= 0:
@@ -167,6 +179,10 @@ def parsltest(jobtype, njob =4, tmax =10, memmax =10, clean =False, twait =5, ma
     showio = False
     if showio: print(f"{myname}: Disk I/O: {psutil.disk_io_counters()}")
     if showio: print(f"{myname}: Netw I/O: {psutil.net_io_counters()}")
+    if dotrace > 1:
+        print(f"Writing parsl stats.")
+        parsl.trace.output_event_stats()
+        dotrace = False
     while len(jobs):
         ijob = 0
         while ijob < len(jobs):
@@ -192,6 +208,9 @@ def parsltest(jobtype, njob =4, tmax =10, memmax =10, clean =False, twait =5, ma
     #time.sleep(dsam)
     msg.set('Done')
     thr.join()
+    if dotrace:
+        print(f"Writing parsl stats.")
+        parsl.trace.output_event_stats()
     # Run user closeout script. E.g. to delete data files.
     os.system('./closeout')
     print(f"{myname}: Exiting.")
