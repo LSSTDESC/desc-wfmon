@@ -15,6 +15,9 @@ import faulthandler
 import signal
 
 function_dir = ''       # for 1.3.0-dev+desc-2022.09.26b only e.g. use '/tmp'
+doParslLogging = True
+
+doParslTracing = 0     # 0 for no trace, 1 at end of job, 2 after all tasks are created
 
 def make_config(max_workers =4, dsam =10, sexec='ht', nnod=0):
     '''
@@ -22,6 +25,7 @@ def make_config(max_workers =4, dsam =10, sexec='ht', nnod=0):
       sexec - specifies the executor
         ht = HighThroughput
         wq = WorkQueue
+        ww = WorkQueue waiting for workers (start with work_queue_worker <host> 9123)
         tp = Threadpool
       max_workers - # workers = target # concurrent tasks
                     For wq, this is the total system memory in MB
@@ -29,13 +33,25 @@ def make_config(max_workers =4, dsam =10, sexec='ht', nnod=0):
     '''
     if sexec == 'wq':
       if len(function_dir):
-         executor = parsl.WorkQueueExecutor(
-                      worker_options=f"--memory={max_workers}",
-                      function_dir="/tmp"
-                    )
+          executor = parsl.WorkQueueExecutor(
+                       worker_options=f"--memory={max_workers}",
+                       function_dir="/tmp"
+                     )
       else:
           executor = parsl.WorkQueueExecutor(
                        worker_options=f"--memory={max_workers}",
+                     )
+    elif sexec == 'ww':
+      if len(function_dir):
+          executor = parsl.WorkQueueExecutor(
+                       worker_options=f"--memory={max_workers}",
+                       function_dir="/tmp",
+                       provider = parsl.providers.LocalProvider(init_blocks=0, min_blocks=0, max_blocks=0)
+                     )
+      else:
+          executor = parsl.WorkQueueExecutor(
+                      worker_options=f"--memory={max_workers}",
+                      provider = parsl.providers.LocalProvider(init_blocks=0, min_blocks=0, max_blocks=0)
                      )
     elif sexec == 'ht':
       executor = parsl.HighThroughputExecutor(
@@ -56,6 +72,7 @@ def make_config(max_workers =4, dsam =10, sexec='ht', nnod=0):
     enabled = dsam > 0
     interval = dsam if enabled else 999
     config = parsl.config.Config(
+       initialize_logging=doParslLogging,
        executors=[ executor ],
        monitoring=parsl.monitoring.monitoring.MonitoringHub(
            hub_address=parsl.addresses.address_by_hostname(),
@@ -116,9 +133,9 @@ def parsltest(jobtype, njob =4, tmax =10, memmax =10, clean =False, twait =5, ma
     print(f"{myname}: Parsltest location is {desc.parsltest.__file__}")
     print(f"{myname}: Parsl version is {parsl.version.VERSION}")
     print(f"{myname}: Parsl location is {parsl.__file__}")
-    dotrace = 0     # 0 for no trace, 1 at end of job, 2 after all tasks are created
-    if dotrace:
-        print(f"Enabling parsl tracing.")
+    global doParslTracing
+    if doParslTracing:
+        print(f"{myname}: WARNING: Enabling parsl tracing.")
         parsl.trace.trace_by_dict=True
     tjob = []
     res_spec = None
@@ -179,10 +196,10 @@ def parsltest(jobtype, njob =4, tmax =10, memmax =10, clean =False, twait =5, ma
     showio = False
     if showio: print(f"{myname}: Disk I/O: {psutil.disk_io_counters()}")
     if showio: print(f"{myname}: Netw I/O: {psutil.net_io_counters()}")
-    if dotrace > 1:
+    if doParslTracing > 1:
         print(f"Writing parsl stats.")
         parsl.trace.output_event_stats()
-        dotrace = False
+        doParslTracing = False
     while len(jobs):
         ijob = 0
         while ijob < len(jobs):
@@ -208,7 +225,7 @@ def parsltest(jobtype, njob =4, tmax =10, memmax =10, clean =False, twait =5, ma
     #time.sleep(dsam)
     msg.set('Done')
     thr.join()
-    if dotrace:
+    if doParslTracing:
         print(f"Writing parsl stats.")
         parsl.trace.output_event_stats()
     # Run user closeout script. E.g. to delete data files.
