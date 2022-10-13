@@ -8,6 +8,7 @@ import time
 import psutil
 import sys
 import os
+import stat
 import desc.sysmon
 import random
 
@@ -19,7 +20,7 @@ doParslLogging = True
 
 doParslTracing = 0     # 0 for no trace, 1 at end of job, 2 after all tasks are created
 
-def make_config(max_workers =4, dsam =10, sexec='ht', nnod=0):
+def make_config(nwrk, node_memory, dsam =10, sexec='ht', nnod=0):
     '''
     Build a config for an executor.
       sexec - specifies the executor
@@ -27,42 +28,42 @@ def make_config(max_workers =4, dsam =10, sexec='ht', nnod=0):
         wq = WorkQueue
         ww = WorkQueue waiting for workers (start with work_queue_worker <host> 9123)
         tp = Threadpool
-      max_workers - # workers = target # concurrent tasks
-                    For wq, this is the total system memory in MB
+      nwrk = # workers = target # concurrent tasks/node for ht and tp
+      node_memory = memory/node for wq [MB]
       dsam - Monitor sampling interval [sec]
     '''
     if sexec == 'wq':
       if len(function_dir):
           executor = parsl.WorkQueueExecutor(
-                       worker_options=f"--memory={max_workers}",
+                       worker_options=f"--memory={node_memory}",
                        function_dir="/tmp"
                      )
       else:
           executor = parsl.WorkQueueExecutor(
-                       worker_options=f"--memory={max_workers}",
+                       worker_options=f"--memory={node_memory}",
                      )
     elif sexec == 'ww':
       if len(function_dir):
           executor = parsl.WorkQueueExecutor(
-                       worker_options=f"--memory={max_workers}",
+                       worker_options=f"--memory={node_memory}",
                        function_dir="/tmp",
                        provider = parsl.providers.LocalProvider(init_blocks=0, min_blocks=0, max_blocks=0)
                      )
       else:
           executor = parsl.WorkQueueExecutor(
-                      worker_options=f"--memory={max_workers}",
+                      worker_options=f"--memory={node_memory}",
                       provider = parsl.providers.LocalProvider(init_blocks=0, min_blocks=0, max_blocks=0)
                      )
     elif sexec == 'ht':
       executor = parsl.HighThroughputExecutor(
                    label="local_htex",
                    cores_per_worker=1,
-                   max_workers=max_workers,
+                   max_workers=nwrk,
                    address=parsl.addresses.address_by_hostname(),
                  )
     elif sexec == 'tp':
       executor = parsl.ThreadPoolExecutor(
-                   max_threads=max_workers,
+                   max_threads=nwrk,
                  )
     else:
         raise Exception(f"Invalid executor specifier: {sexec}")
@@ -96,9 +97,9 @@ def myjob(name, trun):
 #   stdout and stderr are ouput log file names.
 #   parsl_resource_specification is used by WorkQueue
 @parsl.bash_app
-def mybash_sleep(name, trun, memmax, outdir, ngen, stdout, stderr,
+def mybash_sleep(name, trun, mtsk, outdir, ngen, stdout, stderr,
                 parsl_resource_specification={'cores': 1, 'memory': 1000, 'disk': 1000}):
-    scom = f"time sleep {trun}; echo Finished job {name}"
+    scom = f"time sleep {trun}; echo Finished job {name} on $(hostname) at $(date)"
     print(f"mybash_sleep: {scom}")
     return scom
 
@@ -106,9 +107,9 @@ def mybash_sleep(name, trun, memmax, outdir, ngen, stdout, stderr,
 #   stdout and stderr are ouput log file names.
 #   parsl_resource_specification is used by WorkQueue
 @parsl.bash_app
-def mybash_tfix(name, trun, memmax, ngen, outdir, stdout, stderr,
+def mybash_tfix(name, trun, mtsk, ngen, outdir, stdout, stderr,
                 parsl_resource_specification={'cores': 1, 'memory': 1000, 'disk': 1000}):
-    scom = f"desc-cpuburn {name} {trun} {memmax} 0 10000 1 {outdir}; echo Finished job {name}"
+    scom = f"desc-cpuburn {name} {trun} {mtsk} 0 10000 1 {outdir}; echo Finished job {name}"
     print(f"mybash_tfix: {scom}")
     return scom
 
@@ -117,15 +118,15 @@ def mybash_tfix(name, trun, memmax, ngen, outdir, stdout, stderr,
 #   stdout and stderr are ouput log file names.
 #   parsl_resource_specification is used by WorkQueue
 @parsl.bash_app
-def mybash_ifix(name, trun, memmax, ngen, outdir, stdout, stderr,
+def mybash_ifix(name, trun, mtsk, ngen, outdir, stdout, stderr,
                 parsl_resource_specification={'cores': 1, 'memory': 1000, 'disk': 1000}):
     nwfPerSec = [730, 400, 300]
     nwfmax = int(trun*nwfPerSec[ngen])
-    scom = f"desc-cpuburn {name} {0} {memmax} {nwfmax} 10000 {ngen} {outdir}; echo Finished job {name}"
+    scom = f"desc-cpuburn {name} {0} {mtsk} {nwfmax} 10000 {ngen} {outdir}; echo Finished job {name}"
     print(f"mybash_ifix: {scom}")
     return scom
 
-def parsltest(jobtype, njob =4, tmax =10, memmax =10, clean =False, twait =5, max_workers =4, dsam =1, sexec ='ht', nnode=0):
+def parsltest(jobtype, ttsk, mtsk, ntsk, sexec, nwrk, clean =False, twait =5, dsam =1, nnode=0):
     faulthandler.register(signal.SIGUSR2.value)  # So kill -s SIGUSR2 <pid> will show trace.
     myname = 'parsltest'
     print(f"{myname}: Welcome to parsltest")
@@ -139,26 +140,27 @@ def parsltest(jobtype, njob =4, tmax =10, memmax =10, clean =False, twait =5, ma
         parsl.trace.trace_by_dict=True
     tjob = []
     res_spec = None
-    if njob <= 0:
+    if ntsk <= 0:
         print(f"{myname}: Running no jobs.")
-    elif njob == 1:
-        print(f"{myname}: Running 1 job for {tmax:.1f} sec.")
-        tjob.append(tmax)
+    elif ntsk == 1:
+        print(f"{myname}: Running 1 job for {ttsk:.1f} sec.")
+        tjob.append(ttsk)
     else:
-        t0 = 0.5*tmax
-        dtjob = (tmax-t0)/(njob-1)
-        for ijob in range(njob):
-            tjob.append(tmax - ijob*dtjob)
+        t0 = 0.5*ttsk
+        dtjob = (ttsk-t0)/(ntsk-1)
+        for ijob in range(ntsk):
+            tjob.append(ttsk - ijob*dtjob)
         random.shuffle(tjob)
-        print(f"{myname}: Running {njob} jobs for {min(tjob):.1f} - {max(tjob):.1f} sec.")
+        print(f"{myname}: Running {ntsk} jobs for {min(tjob):.1f} - {max(tjob):.1f} sec.")
     print(f"{myname}: Job type is {jobtype}.")
-    print(f"{myname}: Job memory limit is {memmax} GB.")
-    print(f"{myname}: Number of workers: {max_workers}.")
+    print(f"{myname}: Job memory limit is {mtsk} GB.")
+    print(f"{myname}: Number of workers: {nwrk}.")
+    node_memory = 100.0
     if sexec == 'wq':
-        max_workers = int(1024*memmax*max_workers)
-        res_spec = {'cores': 1, 'memory': 1024*int(memmax), 'disk': 1000}
-        res_spec['running_time_min'] = tmax*1.1
-        print(f"{myname}: System memory limit: {max_workers} MB.")
+        node_memory = int(1024*mtsk*nwrk)
+        res_spec = {'cores': 1, 'memory': 1024*int(mtsk), 'disk': 1000}
+        res_spec['running_time_min'] = ttsk*1.1
+        print(f"{myname}: System memory limit: {node_memory} MB.")
         print(f"{myname}: Resource spec: {res_spec}.")
     print(f"{myname}: Monitor sampling time: {dsam} seconds.")
     print(f"{myname}: Executor: {sexec}.")
@@ -166,7 +168,7 @@ def parsltest(jobtype, njob =4, tmax =10, memmax =10, clean =False, twait =5, ma
     # Resource specs for the WorkQueue executor.
     if clean: os.system('./clean')
     #parsl.clear()
-    cfg = make_config(max_workers, dsam, sexec, nnode)
+    cfg = make_config(nwrk, node_memory, dsam, sexec, nnode)
     msg = desc.sysmon.Notify()
     dsamsys = dsam if dsam > 0 else 5
     thr = desc.sysmon.reporter('sysmon.csv', dt=dsamsys, check=msg, dbg=3, thr=True)
@@ -182,10 +184,10 @@ def parsltest(jobtype, njob =4, tmax =10, memmax =10, clean =False, twait =5, ma
         if not os.path.isdir(dir) and not os.path.islink(dir):
             print(f"{myname}: Creating directory {dir}")
             os.mkdir(dir)
-    for ijob in range(njob):
+    for ijob in range(ntsk):
         fout = f"logo/jobout{ijob:04}.log"
         ferr = f"loge/joberr{ijob:04}.log"
-        sjob  = f"mybash_{jobtype}('job{ijob:04}', tjob[ijob], memmax, ngen, outdir, "
+        sjob  = f"mybash_{jobtype}('job{ijob:04}', tjob[ijob], mtsk, ngen, outdir, "
         sjob += f"stdout=fout, stderr=ferr, parsl_resource_specification=res_spec)"
         print(f"Creating: {sjob}")
         print(f"  fout: {fout}")
@@ -232,35 +234,124 @@ def parsltest(jobtype, njob =4, tmax =10, memmax =10, clean =False, twait =5, ma
     os.system('./closeout')
     print(f"{myname}: Exiting.")
 
+def parsltest_from_string(sargs):
+    '''
+    Create a parsl test from a string made up for dash-separated fields:
+    ifix or sleep - Job type
+    ttsk - Average task run time [s]
+    mtsk - Task memory estimate [GB]
+    wq, ww, ht, tp - Executor
+    ntsk - Total # tasks to run
+    nwrk - # concurrent tasks for ht or tp
+    '''
+    jtyp = None
+    ttsk = None
+    mtsk = 1
+    ntsk = None
+    sexe = None
+    nwrk = None
+    dsam = 5
+    nnod = 0
+    emsgs = []
+    for sarg in sargs.split('-'):
+        if sarg in ['sleep', 'fix']:
+            jtyp = sarg
+        elif sarg[0:4] == 'ttsk':
+            ttsk = int(sarg[4:])
+        elif sarg[0:4] == 'mtsk':
+            mtsk = int(sarg[4:])
+        elif sarg[0:4] == 'ntsk':
+            ntsk = int(sarg[4:])
+        elif sarg in ['wq', 'ww', 'ht', 'tp']:
+            sexe = sarg
+        elif sarg[0:4] == 'nwrk':
+            nwrk = int(sarg[4:])
+        elif sarg[0:4] == 'dsam':
+            dsam = int(sarg[4:])
+        elif sarg[0:4] == 'nnod':
+            nnod = int(sarg[4:])
+        else:
+            emsgs += [f"Invalid field: {sarg}"]
+    if jtyp is None: emsgs += ['Job type must be provided']
+    if ttsk is None: emsgs += ['Job run time must be provided']
+    if ntsk is None: emsgs += ['Number of tasks must be provided']
+    if sexe is None: emsgs += ['Executor must be provided']
+    if nwrk is None: emsgs += ['Number of workers/node must be provided']
+    if len(emsgs):
+        myname = 'parsltest'
+        for emsg in emsgs:
+            print(f"{myname}: ERROR: {emsg}")
+        return 0
+    if ntsk > 0: parsltest(jobtype=jtyp, ttsk=ttsk, mtsk=mtsk, ntsk=ntsk, sexec=sexe, nwrk=nwrk, dsam=dsam, nnode=nnod)
+
+def ldj_create_parsltest(sargs, myname):
+    '''Create the submit file for a label-driven job'''
+    fnam = 'submit'
+    if os.path.exists(fnam):
+        print(f"{myname}: ERROR: file exists: {fnam}")
+        return 1
+    fout = open(fnam, "w")
+    fout.write(f"desc-wfmon-parsltest {sargs}\n")
+    fout.close()
+    fst = os.stat(fnam)
+    os.chmod(fnam, fst.st_mode | stat.S_IEXEC)
+
 def main_parsltest():
+    myname = os.path.basename(sys.argv[0])
+    narg = len(sys.argv)
+    help = narg != 2
+    if not help:
+        sargs = sys.argv[1]
+        if sargs == '-h': help = True
+    if help:
+        print(f"Usage: {myname} OPT1-OPT2-... where options OPTi include")
+        print(f"  sleep or ifix: Job type")
+        print(f"  ttskTTT: Nominal task run time is TTT sec")
+        print(f"  mtskMMM: Nominal task memory size time is MMM GB [1]")
+        print(f"  ntskNNN: Nominal number of tasks is NNN")
+        print(f"  wq, ww, ht or tp: Parsl executor")
+        print(f"  nwrkNNN: number of workers/node")
+        print(f"  dsamTTT: monitor sampling period in sec [5]")
+        print(f"  nnodNNN: Number of nodes [0]")
+        return 0
+    if myname == 'desc-wfmon-parsltest':
+        return parsltest_from_string(sargs)
+    elif myname == 'ldj-create-parsltest':
+        return ldj_create_parsltest(sargs, myname)
+    else:
+        print(f"ERROR: unrecognized command mapping: {myname}")
+        return 1
+
+def main_parsltest_old():
+    myname = os.path.basename(sys.argv[0])
     if len(sys.argv) > 1 and sys.argv[1] == '-v':
         print(f"{desc.parsltest.__version__}")
         return 0
     if len(sys.argv) > 1 and sys.argv[1] == '-h':
-        print(f"Usage: {sys.argv[0]} NJOB NSEC NWRK DSAM MMAX SEXC NNOD")
+        print(f"Usage: {myname} JTYP NTSK TTSK NWRK DSAM MTSK SEXC NNOD")
         print(f"  JTYP - Job type (fix, sleep, ...)")
-        print(f"  NJOB - Number of jobs [0].")
-        print(f"  NSEC - Run time for the Nth job.")
-        print(f"  NWRK - Number of worker nodes [4].")
-        print(f"  DSAM - Sampling interval in seconds [10].")
-        print(f"  MMAX - Memory limit per job in GB [10].")
+        print(f"  TTSK - Run time for the Nth job.")
+        print(f"  MTSK - Memory limit per job in GB [10].")
+        print(f"  NTSK - Number of tasks [0].")
         print(f"  SEXC - Executor: ht, wq or tp [xx]")
+        print(f"  NWRK - Number of worker nodes for ht or tp [4].")
+        print(f"  DSAM - Sampling interval in seconds [10].")
         print(f"  NNOD - # worker nodes (0 is local submission)")
         print(f"parsltest version is {desc.parsltest.__version__}")
         return 0
-    njob = 0
-    tmax = 60.0
+    ntsk = 0
+    ttsk = 60.0
     nwrk = 4
     dsam = 10
-    mmax = 10
-    sexc = 'xx'
+    mtsk = 10
+    sexe = 'xx'
     nnod = 0
     if len(sys.argv) > 1:
         jtyp = sys.argv[1]
     if len(sys.argv) > 2:
-        njob = int(sys.argv[2])
+        ntsk = int(sys.argv[2])
     if len(sys.argv) > 3:
-        tmax = float(sys.argv[3])
+        ttsk = float(sys.argv[3])
     if len(sys.argv) > 4:
         nwrk = int(sys.argv[4])
     if len(sys.argv) > 5:
@@ -268,9 +359,9 @@ def main_parsltest():
         #if dsam == 0:
         #    dsam = float(sys.argv[5])
     if len(sys.argv) > 6:
-        mmax = float(sys.argv[6])
+        mtsk = float(sys.argv[6])
     if len(sys.argv) > 7:
-        sexc = sys.argv[7]
+        sexe = sys.argv[7]
     if len(sys.argv) > 8:
         nnod = int(sys.argv[8])
-    if njob > 0: parsltest(jtyp, njob, tmax, max_workers=nwrk, dsam=dsam, memmax=mmax, sexec=sexc, nnode=nnod)
+    if ntsk > 0: parsltest(jobtype=jtyp, ttsk=ttsk, mtsk=mtsk, ntsk=ntsk, sexec=sexe, nwrk=nwrk, dsam=dsam, nnode=nnod)
