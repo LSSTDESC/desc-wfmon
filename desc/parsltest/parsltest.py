@@ -254,7 +254,7 @@ def parsltest_from_string(sargs):
     nnod = 0
     emsgs = []
     for sarg in sargs.split('-'):
-        if sarg in ['sleep', 'fix']:
+        if sarg in ['sleep', 'ifix']:
             jtyp = sarg
         elif sarg[0:4] == 'ttsk':
             ttsk = int(sarg[4:])
@@ -299,11 +299,14 @@ def ldj_create_parsltest(sargs, myname):
 def main_parsltest():
     myname = os.path.basename(sys.argv[0])
     narg = len(sys.argv)
-    help = narg != 2
-    if not help:
+    dohelp = narg != 2
+    helpstat = 1
+    if not dohelp:
         sargs = sys.argv[1]
-        if sargs == '-h': help = True
-    if help:
+        if sargs == '-h':
+            dohelp = True
+            helpstat = 0
+    if dohelp:
         print(f"Usage: {myname} OPT1-OPT2-... where options OPTi include")
         print(f"  sleep or ifix: Job type")
         print(f"  ttskTTT: Nominal task run time is TTT sec")
@@ -313,7 +316,7 @@ def main_parsltest():
         print(f"  nwrkNNN: number of workers/node")
         print(f"  dsamTTT: monitor sampling period in sec [5]")
         print(f"  nnodNNN: Number of nodes [0]")
-        return 0
+        return helpstat
     if myname == 'desc-wfmon-parsltest':
         return parsltest_from_string(sargs)
     elif myname == 'ldj-create-parsltest':
@@ -329,7 +332,7 @@ def main_parsltest_old():
         return 0
     if len(sys.argv) > 1 and sys.argv[1] == '-h':
         print(f"Usage: {myname} JTYP NTSK TTSK NWRK DSAM MTSK SEXC NNOD")
-        print(f"  JTYP - Job type (fix, sleep, ...)")
+        print(f"  JTYP - Job type (ifix, sleep, ...)")
         print(f"  TTSK - Run time for the Nth job.")
         print(f"  MTSK - Memory limit per job in GB [10].")
         print(f"  NTSK - Number of tasks [0].")
