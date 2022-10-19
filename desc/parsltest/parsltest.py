@@ -15,7 +15,12 @@ import random
 import faulthandler
 import signal
 
-function_dir = ''       # for 1.3.0-dev+desc-2022.09.26b only e.g. use '/tmp'
+def get_function_dir():
+  nam = f"/tmp/{os.environ.get('USER')}/parsl"       # for 1.3.0-dev+desc-2022.09.26b only e.g. use '/tmp'
+  if not os.path.exists(nam):
+      os.makedirs(nam)
+  return nam
+
 doParslLogging = True
 
 doParslTracing = 0     # 0 for no trace, 1 at end of job, 2 after all tasks are created
@@ -33,27 +38,16 @@ def make_config(nwrk, node_memory, dsam =10, sexec='ht', nnod=0):
       dsam - Monitor sampling interval [sec]
     '''
     if sexec == 'wq':
-      if len(function_dir):
-          executor = parsl.WorkQueueExecutor(
+        executor = parsl.WorkQueueExecutor(
                        worker_options=f"--memory={node_memory}",
-                       function_dir="/tmp"
-                     )
-      else:
-          executor = parsl.WorkQueueExecutor(
-                       worker_options=f"--memory={node_memory}",
-                     )
+                       function_dir=get_function_dir(),
+                   )
     elif sexec == 'ww':
-      if len(function_dir):
-          executor = parsl.WorkQueueExecutor(
+        executor = parsl.WorkQueueExecutor(
                        worker_options=f"--memory={node_memory}",
-                       function_dir="/tmp",
+                       function_dir=get_function_dir(),
                        provider = parsl.providers.LocalProvider(init_blocks=0, min_blocks=0, max_blocks=0)
-                     )
-      else:
-          executor = parsl.WorkQueueExecutor(
-                      worker_options=f"--memory={node_memory}",
-                      provider = parsl.providers.LocalProvider(init_blocks=0, min_blocks=0, max_blocks=0)
-                     )
+                   )
     elif sexec == 'ht':
       executor = parsl.HighThroughputExecutor(
                    label="local_htex",
