@@ -15,6 +15,8 @@ import random
 import faulthandler
 import signal
 
+# Return the parsl WorQue fundtion dir.
+# Making this local can improve the launch rate.
 def get_function_dir():
   nam = f"/tmp/{os.environ.get('USER')}/parsl"       # for 1.3.0-dev+desc-2022.09.26b only e.g. use '/tmp'
   if not os.path.exists(nam):
@@ -120,7 +122,7 @@ def mybash_ifix(name, trun, mtsk, ngen, outdir, stdout, stderr,
     print(f"mybash_ifix: {scom}")
     return scom
 
-def parsltest(jobtype, ttsk, mtsk, ntsk, sexec, nwrk, clean =False, twait =5, dsam =1, nnode=0):
+def parsltest(jobdesc, ttsk, mtsk, ntsk, sexec, nwrk, clean =False, twait =5, dsam =1, nnode=0):
     faulthandler.register(signal.SIGUSR2.value)  # So kill -s SIGUSR2 <pid> will show trace.
     myname = 'parsltest'
     print(f"{myname}: Welcome to parsltest")
@@ -134,6 +136,13 @@ def parsltest(jobtype, ttsk, mtsk, ntsk, sexec, nwrk, clean =False, twait =5, ds
         parsl.trace.trace_by_dict=True
     tjob = []
     res_spec = None
+    if jobdesc in ['sleep']:
+        jobtype = jobdesc
+    elif jobdesc in ['ifixw', 'ifixn']:
+        jobtype = 'ifix'
+    else:
+        print(f"{nyname}: ERROR: Invalid job description: {jobdesc}")
+        return 1
     if ntsk <= 0:
         print(f"{myname}: Running no jobs.")
     elif ntsk == 1:
@@ -172,10 +181,12 @@ def parsltest(jobtype, ttsk, mtsk, ntsk, sexec, nwrk, clean =False, twait =5, ds
     ngen = 1
     pwd = os.getcwd()
     outdir =    f"{pwd}/out"
+    if jobdesc in ['ifixn']:
+        outdir = '/dev/null'
     logoutdir = f"{pwd}/logo"
     logerrdir = f"{pwd}/loge"
     for dir in [outdir, logoutdir, logerrdir]:
-        if not os.path.isdir(dir) and not os.path.islink(dir):
+        if dir != '/dev/null' and not os.path.isdir(dir) and not os.path.islink(dir):
             print(f"{myname}: Creating directory {dir}")
             os.mkdir(dir)
     for ijob in range(ntsk):
@@ -231,7 +242,7 @@ def parsltest(jobtype, ttsk, mtsk, ntsk, sexec, nwrk, clean =False, twait =5, ds
 def parsltest_from_string(sargs):
     '''
     Create a parsl test from a string made up for dash-separated fields:
-    ifix or sleep - Job type
+    ifixw, ifixn or sleep - Job type
     ttsk - Average task run time [s]
     mtsk - Task memory estimate [GB]
     wq, ww, ht, tp - Executor
@@ -248,7 +259,7 @@ def parsltest_from_string(sargs):
     nnod = 0
     emsgs = []
     for sarg in sargs.split('-'):
-        if sarg in ['sleep', 'ifix']:
+        if sarg in ['sleep', 'ifixw', 'ifixn']:
             jtyp = sarg
         elif sarg[0:4] == 'ttsk':
             ttsk = int(sarg[4:])
@@ -276,7 +287,7 @@ def parsltest_from_string(sargs):
         for emsg in emsgs:
             print(f"{myname}: ERROR: {emsg}")
         return 0
-    if ntsk > 0: parsltest(jobtype=jtyp, ttsk=ttsk, mtsk=mtsk, ntsk=ntsk, sexec=sexe, nwrk=nwrk, dsam=dsam, nnode=nnod)
+    if ntsk > 0: parsltest(jobdesc=jtyp, ttsk=ttsk, mtsk=mtsk, ntsk=ntsk, sexec=sexe, nwrk=nwrk, dsam=dsam, nnode=nnod)
 
 def ldj_create_parsltest(sargs, myname):
     '''Create the submit file for a label-driven job'''
@@ -302,7 +313,7 @@ def main_parsltest():
             helpstat = 0
     if dohelp:
         print(f"Usage: {myname} OPT1-OPT2-... where options OPTi include")
-        print(f"  sleep or ifix: Job type")
+        print(f"  sleep, ifixw or ifixn: Job type")
         print(f"  ttskTTT: Nominal task run time is TTT sec")
         print(f"  mtskMMM: Nominal task memory size time is MMM GB [1]")
         print(f"  ntskNNN: Nominal number of tasks is NNN")
@@ -326,7 +337,7 @@ def main_parsltest_old():
         return 0
     if len(sys.argv) > 1 and sys.argv[1] == '-h':
         print(f"Usage: {myname} JTYP NTSK TTSK NWRK DSAM MTSK SEXC NNOD")
-        print(f"  JTYP - Job type (ifix, sleep, ...)")
+        print(f"  JTYP - Job type (ifixw, ifixn, sleep, ...)")
         print(f"  TTSK - Run time for the Nth job.")
         print(f"  MTSK - Memory limit per job in GB [10].")
         print(f"  NTSK - Number of tasks [0].")
