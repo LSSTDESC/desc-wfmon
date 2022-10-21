@@ -322,6 +322,9 @@ def main_parsltest():
         print(f"  dsamTTT: monitor sampling period in sec [5]")
         print(f"  nnodNNN: Number of nodes [0]")
         return helpstat
+    if sargs == '-v':
+        print(f"{desc.parsltest.__version__}")
+        return 0
     if myname == 'desc-wfmon-parsltest':
         return parsltest_from_string(sargs)
     elif myname == 'ldj-create-parsltest':
@@ -372,4 +375,4 @@ def main_parsltest_old():
         sexe = sys.argv[7]
     if len(sys.argv) > 8:
         nnod = int(sys.argv[8])
-    if ntsk > 0: parsltest(jobtype=jtyp, ttsk=ttsk, mtsk=mtsk, ntsk=ntsk, sexec=sexe, nwrk=nwrk, dsam=dsam, nnode=nnod)
+    if ntsk > 0: parsltest(jobdesc=jtyp, ttsk=ttsk, mtsk=mtsk, ntsk=ntsk, sexec=sexe, nwrk=nwrk, dsam=dsam, nnode=nnod)
