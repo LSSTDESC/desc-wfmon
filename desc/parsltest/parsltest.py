@@ -88,11 +88,11 @@ def make_config(nwrk, node_memory, dsam =10, sexec='ht', nnod=0):
     return config
 
 @parsl.python_app
-def myjob(name, trun):
+def mytsk(name, trun):
     import time
-    print(f"""Running job {name} for {trun:.1f} seconds""")
+    print(f"""Running task {name} for {trun:.1f} seconds""")
     time.sleep(trun)
-    return f"""Finished job {name}"""
+    return f"""Finished task {name}"""
 
 # Bash app which sleeps.
 #   stdout and stderr are ouput log file names.
@@ -100,7 +100,7 @@ def myjob(name, trun):
 @parsl.bash_app
 def mybash_sleep(name, trun, mtsk, outdir, ngen, stdout, stderr,
                 parsl_resource_specification={'cores': 1, 'memory': 1000, 'disk': 1000}):
-    scom = f"time sleep {trun}; echo Finished job {name} on $(hostname) at $(date)"
+    scom = f"time sleep {trun}; echo Finished task {name} on $(hostname) at $(date)"
     print(f"mybash_sleep: {scom}")
     return scom
 
@@ -110,7 +110,7 @@ def mybash_sleep(name, trun, mtsk, outdir, ngen, stdout, stderr,
 @parsl.bash_app
 def mybash_tfix(name, trun, mtsk, ngen, outdir, stdout, stderr,
                 parsl_resource_specification={'cores': 1, 'memory': 1000, 'disk': 1000}):
-    scom = f"desc-cpuburn {name} {trun} {mtsk} 0 10000 1 {outdir}; echo Finished job {name}"
+    scom = f"desc-cpuburn {name} {trun} {mtsk} 0 10000 1 '{outdir}'; echo Finished task {name}"
     print(f"mybash_tfix: {scom}")
     return scom
 
@@ -123,11 +123,11 @@ def mybash_ifix(name, trun, mtsk, ngen, outdir, stdout, stderr,
                 parsl_resource_specification={'cores': 1, 'memory': 1000, 'disk': 1000}):
     nwfPerSec = [730, 400, 300]
     nwfmax = int(trun*nwfPerSec[ngen])
-    scom = f"desc-cpuburn {name} {0} {mtsk} {nwfmax} 10000 {ngen} {outdir}; echo Finished job {name}"
+    scom = f"desc-cpuburn {name} {0} {mtsk} {nwfmax} 10000 {ngen} '{outdir}'; echo Finished task {name}"
     print(f"mybash_ifix: {scom}")
     return scom
 
-def parsltest(jobdesc, ttsk, mtsk, ntsk, sexec, nwrk, clean =False, twait =5, dsam =1, nnode=0):
+def parsltest(tskdesc, ttsk, mtsk, ntsk, sexec, nwrk, clean =False, twait =5, dsam =1, nnode=0):
     faulthandler.register(signal.SIGUSR2.value)  # So kill -s SIGUSR2 <pid> will show trace.
     myname = 'parsltest'
     print(f"{myname}: Welcome to parsltest")
@@ -139,29 +139,29 @@ def parsltest(jobdesc, ttsk, mtsk, ntsk, sexec, nwrk, clean =False, twait =5, ds
     if doParslTracing:
         print(f"{myname}: WARNING: Enabling parsl tracing.")
         parsl.trace.trace_by_dict=True
-    tjob = []
+    ttsks = []
     res_spec = None
-    if jobdesc in ['sleep']:
-        jobtype = jobdesc
-    elif jobdesc in ['ifixw', 'ifixn']:
-        jobtype = 'ifix'
+    if tskdesc in ['sleep']:
+        tsktype = tskdesc
+    elif tskdesc in ['ifixw', 'ifixn', 'ifix0']:
+        tsktype = 'ifix'
     else:
-        print(f"{nyname}: ERROR: Invalid job description: {jobdesc}")
+        print(f"{nyname}: ERROR: Invalid task description: {tskdesc}")
         return 1
     if ntsk <= 0:
-        print(f"{myname}: Running no jobs.")
+        print(f"{myname}: Running no tasks.")
     elif ntsk == 1:
-        print(f"{myname}: Running 1 job for {ttsk:.1f} sec.")
-        tjob.append(ttsk)
+        print(f"{myname}: Running 1 task for {ttsk:.1f} sec.")
+        ttsks.append(ttsk)
     else:
         t0 = 0.5*ttsk
-        dtjob = (ttsk-t0)/(ntsk-1)
-        for ijob in range(ntsk):
-            tjob.append(ttsk - ijob*dtjob)
-        random.shuffle(tjob)
-        print(f"{myname}: Running {ntsk} jobs for {min(tjob):.1f} - {max(tjob):.1f} sec.")
-    print(f"{myname}: Job type is {jobtype}.")
-    print(f"{myname}: Job memory limit is {mtsk} GB.")
+        dttsk = (ttsk-t0)/(ntsk-1)
+        for itsk in range(ntsk):
+            ttsks.append(ttsk - itsk*dttsk)
+        random.shuffle(ttsks)
+        print(f"{myname}: Running {ntsk} tsaks for {min(ttsks):.1f} - {max(ttsks):.1f} sec.")
+    print(f"{myname}: Task type is {tsktype}.")
+    print(f"{myname}: Task memory size is {mtsk} GB.")
     print(f"{myname}: Number of workers: {nwrk}.")
     use_nwrk_memory = False
     node_memory = 0.0
@@ -183,30 +183,32 @@ def parsltest(jobdesc, ttsk, mtsk, ntsk, sexec, nwrk, clean =False, twait =5, ds
     dsamsys = dsam if dsam > 0 else 5
     thr = desc.sysmon.reporter('sysmon.csv', dt=dsamsys, check=msg, dbg=3, thr=True)
     parsl.load(cfg)
-    jobs = []
-    jobsDone = []
+    tsks = []
+    tsksDone = []
     ngen = 1
     pwd = os.getcwd()
     outdir =    f"{pwd}/out"
-    if jobdesc in ['ifixn']:
+    if tskdesc in ['ifixn']:
         outdir = '/dev/null'
+    if tskdesc in ['ifix0']:
+        outdir = ''
     logoutdir = f"{pwd}/logo"
     logerrdir = f"{pwd}/loge"
     for dir in [outdir, logoutdir, logerrdir]:
-        if dir != '/dev/null' and not os.path.isdir(dir) and not os.path.islink(dir):
+        if len(dir) and dir != '/dev/null' and not os.path.isdir(dir) and not os.path.islink(dir):
             print(f"{myname}: Creating directory {dir}")
             os.mkdir(dir)
-    for ijob in range(ntsk):
-        fout = f"logo/jobout{ijob:04}.log"
-        ferr = f"loge/joberr{ijob:04}.log"
-        sjob  = f"mybash_{jobtype}('job{ijob:04}', tjob[ijob], mtsk, ngen, outdir, "
-        sjob += f"stdout=fout, stderr=ferr, parsl_resource_specification=res_spec)"
-        print(f"Creating: {sjob}")
+    for itsk in range(ntsk):
+        fout = f"logo/taskout{itsk:04}.log"
+        ferr = f"loge/taskerr{itsk:04}.log"
+        stsk  = f"mybash_{tsktype}('tsk{itsk:04}', ttsks[itsk], mtsk, ngen, outdir, "
+        stsk += f"stdout=fout, stderr=ferr, parsl_resource_specification=res_spec)"
+        print(f"Creating: {stsk}")
         print(f"  fout: {fout}")
         print(f"  ferr: {ferr}")
-        jobs.append(eval(sjob))
-        assert(jobs[-1] is not None)
-        #print(f"Created {jobs[-1]}")
+        tsks.append(eval(stsk))
+        assert(tsks[-1] is not None)
+        #print(f"Created {tsks[-1]}")
     showio = False
     if showio: print(f"{myname}: Disk I/O: {psutil.disk_io_counters()}")
     if showio: print(f"{myname}: Netw I/O: {psutil.net_io_counters()}")
@@ -214,26 +216,26 @@ def parsltest(jobdesc, ttsk, mtsk, ntsk, sexec, nwrk, clean =False, twait =5, ds
         print(f"Writing parsl stats.")
         parsl.trace.output_event_stats()
         doParslTracing = False
-    while len(jobs):
-        ijob = 0
+    while len(tsks):
+        itsk = 0
         nrun = 0
-        while ijob < len(jobs):
-            job = jobs[ijob]
-            if job.done():
-                #print(f"{myname}: Completed: {job}")
-                e = job.exception()
+        while itsk < len(tsks):
+            tsk = tsks[itsk]
+            if tsk.done():
+                #print(f"{myname}: Completed: {tsk}")
+                e = tsk.exception()
                 if e is None:
-                    print(f"{myname}: Job result: {job.result()}")
+                    print(f"{myname}: Job result: {tsk.result()}")
                 else:
                     print(e)
-                jobsDone.append(job)
-                jobs.pop(ijob)
+                tsksDone.append(tsk)
+                tsks.pop(itsk)
             else:
-                if job.task_status() == 'running': nrun += 1
-                ijob = ijob + 1
-        print(f"{myname}: {len(jobs):4} jobs remaining, {nrun} running")
+                if tsk.task_status() == 'running': nrun += 1
+                itsk = itsk + 1
+        print(f"{myname}: {len(tsks):4} tsks remaining, {nrun} running")
         time.sleep(10)
-    print(f"{myname}: All jobs complete.")
+    print(f"{myname}: All tsks complete.")
     time.sleep(twait)
     if showio: print(f"{myname}: Disk I/O: {psutil.disk_io_counters()}")
     if showio: print(f"{myname}: Netw I/O: {psutil.net_io_counters()}")
@@ -251,7 +253,7 @@ def parsltest(jobdesc, ttsk, mtsk, ntsk, sexec, nwrk, clean =False, twait =5, ds
 def parsltest_from_string(sargs):
     '''
     Create a parsl test from a string made up for dash-separated fields:
-    ifixw, ifixn or sleep - Job type
+    ifixw, ifixn, ifix0 or sleep - Job type
     ttsk - Average task run time [s]
     mtsk - Task memory usage [1 GB]
     wq, ww, ht, tp - Executor
@@ -269,7 +271,7 @@ def parsltest_from_string(sargs):
     nnod = 0
     emsgs = []
     for sarg in sargs.split('-'):
-        if sarg in ['sleep', 'ifixw', 'ifixn']:
+        if sarg in ['sleep', 'ifixw', 'ifixn', 'ifix0']:
             jtyp = sarg
         elif sarg[0:4] == 'ttsk':
             ttsk = int(sarg[4:])
@@ -297,10 +299,10 @@ def parsltest_from_string(sargs):
         for emsg in emsgs:
             print(f"{myname}: ERROR: {emsg}")
         return 0
-    if ntsk > 0: parsltest(jobdesc=jtyp, ttsk=ttsk, mtsk=mtsk, ntsk=ntsk, sexec=sexe, nwrk=nwrk, dsam=dsam, nnode=nnod)
+    if ntsk > 0: parsltest(tskdesc=jtyp, ttsk=ttsk, mtsk=mtsk, ntsk=ntsk, sexec=sexe, nwrk=nwrk, dsam=dsam, nnode=nnod)
 
 def ldj_create_parsltest(sargs, myname):
-    '''Create the submit file for a label-driven job'''
+    '''Create the submit file for a label-driven tsk'''
     fnam = 'submit'
     if os.path.exists(fnam):
         print(f"{myname}: ERROR: file exists: {fnam}")
@@ -323,7 +325,12 @@ def main_parsltest():
             helpstat = 0
     if dohelp:
         print(f"Usage: {myname} OPT1-OPT2-... where options OPTi include")
-        print(f"  sleep, ifixw or ifixn: Job type")
+        print(f"  A task type:")
+        print(f"    sleep - Sleep for a specified time")
+        print(f"    ifixw - Run cpuburn a specified time, writing output")
+        print("             when task memory is reached.")
+        print(f"    ifixn - Same except writes are to /dev/null.")
+        print(f"    ifix0 - Same without writing anything out.")
         print(f"  ttskTTT: Nominal task run time is TTT sec")
         print(f"  mtskMMM: Nominal task memory size time is MMM GB [1]")
         print(f"  ntskNNN: Nominal number of tasks is NNN")
@@ -350,9 +357,9 @@ def main_parsltest_old():
         return 0
     if len(sys.argv) > 1 and sys.argv[1] == '-h':
         print(f"Usage: {myname} JTYP NTSK TTSK NWRK DSAM MTSK SEXC NNOD")
-        print(f"  JTYP - Job type (ifixw, ifixn, sleep, ...)")
-        print(f"  TTSK - Run time for the Nth job.")
-        print(f"  MTSK - Memory limit per job in GB [10].")
+        print(f"  JTYP - Job type (ifixw, ifixn, ifix0, sleep, ...)")
+        print(f"  TTSK - Run time for the Nth task.")
+        print(f"  MTSK - Task memory size in GB [10].")
         print(f"  NTSK - Number of tasks [0].")
         print(f"  SEXC - Executor: ht, wq or tp [xx]")
         print(f"  NWRK - Number of worker nodes for ht or tp [4].")
@@ -385,4 +392,4 @@ def main_parsltest_old():
         sexe = sys.argv[7]
     if len(sys.argv) > 8:
         nnod = int(sys.argv[8])
-    if ntsk > 0: parsltest(jobdesc=jtyp, ttsk=ttsk, mtsk=mtsk, ntsk=ntsk, sexec=sexe, nwrk=nwrk, dsam=dsam, nnode=nnod)
+    if ntsk > 0: parsltest(tskdesc=jtyp, ttsk=ttsk, mtsk=mtsk, ntsk=ntsk, sexec=sexe, nwrk=nwrk, dsam=dsam, nnode=nnod)

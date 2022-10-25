@@ -11,7 +11,7 @@ import pickle
 import struct
 from array import array
 
-def cpuburn(name, tmax=0, memmax=0, nwfmax=0, nsam=1000, ngen=1, a_outdir=""):
+def cpuburn(name, tmax=0, memmax=0, nwfmax=0, nsam=1000, ngen=1, outdir=''):
     '''
     Test program to stress CPU, memory and I/O.
     Waveforms of fixed length are sequentially generated in a single thread.
@@ -43,9 +43,6 @@ def cpuburn(name, tmax=0, memmax=0, nwfmax=0, nsam=1000, ngen=1, a_outdir=""):
     if memmax > 0: smemlim = f"{memmax} GB"
     stimlim = 'unlimited'
     if tmax > 0: stimm = f"{tmax} sec"
-    outdir = 'out'
-    if len(a_outdir):
-        outdir = a_outdir
     print(f"{name}: Version {vers}")
     print(f"{name}: Label: {name}")
     print(f"{name}: Waveform nsam: {nsam}")
@@ -91,27 +88,30 @@ def cpuburn(name, tmax=0, memmax=0, nwfmax=0, nsam=1000, ngen=1, a_outdir=""):
         filldone = memuse > memmax
         if filldone or jobdone:
             print(line)
-            fnam = f"{outdir}/{name}-{nfil}.out"
             print(f"""{name}: Finished generating {nwf} waveforms at time {timg:.3f} sec, memory {memg:.3f} GB""")
-            print(f"""{name}: Writing {fnam} at {tim:.3f} sec""")
-            pout1 = proc.io_counters().write_chars
-            sout1 = psutil.disk_io_counters().write_bytes
-            nout1 = psutil.net_io_counters().bytes_sent
-            with open(fnam, "wb") as fout:
-                print(f"{name}:    Start pack {nfil} at time {tim:.3f} sec, memory {memuse:.3f} GB")
-                print(f"{name}:    Waveform count is {len(wfos)}")
-                for wfo in wfos:
-                    s1 = struct.pack('f'*len(wfo), *wfo)
-                    fout.write(s1)
-                fout.close()
-            dpout = proc.io_counters().write_chars - pout1
-            dsout = psutil.disk_io_counters().write_bytes - sout1
-            dnout = psutil.net_io_counters().bytes_sent - nout1
-            timw = time.process_time() - t0
-            sumtimw += timw - tim
-            memw = proc.memory_info().rss/gb
-            print(f"""{name}:   Finish write {nfil} at time {timw:.3f} sec, memory {memw:.3f} GB""")
-            print(f"""{name}:   Process, disk, network out: {dpout/gb:.3f}, {dsout/gb:.3f}, {dnout/gb:.3f} GB""")
+            fnam = outdir
+            if len(fnam):
+                if fnam != '/dev/null':
+                    fnam = f"{outdir}/{name}-{nfil}.out"
+                print(f"""{name}: Writing {fnam} at {tim:.3f} sec""")
+                pout1 = proc.io_counters().write_chars
+                sout1 = psutil.disk_io_counters().write_bytes
+                nout1 = psutil.net_io_counters().bytes_sent
+                with open(fnam, "wb") as fout:
+                    print(f"{name}:    Start pack {nfil} at time {tim:.3f} sec, memory {memuse:.3f} GB")
+                    print(f"{name}:    Waveform count is {len(wfos)}")
+                    for wfo in wfos:
+                        s1 = struct.pack('f'*len(wfo), *wfo)
+                        fout.write(s1)
+                    fout.close()
+                dpout = proc.io_counters().write_chars - pout1
+                dsout = psutil.disk_io_counters().write_bytes - sout1
+                dnout = psutil.net_io_counters().bytes_sent - nout1
+                timw = time.process_time() - t0
+                sumtimw += timw - tim
+                memw = proc.memory_info().rss/gb
+                print(f"""{name}:   Finish write {nfil} at time {timw:.3f} sec, memory {memw:.3f} GB""")
+                print(f"""{name}:   Process, disk, network out: {dpout/gb:.3f}, {dsout/gb:.3f}, {dnout/gb:.3f} GB""")
             nfil = nfil + 1
             if tim >= tmax: break
             wfos = []
@@ -145,7 +145,7 @@ def cpuburn(name, tmax=0, memmax=0, nwfmax=0, nsam=1000, ngen=1, a_outdir=""):
     inpsize = dio.read_chars/gb
     outsize = dio.write_chars/gb
     memexit = proc.memory_info().rss/gb
-    print(f"{name}: Number of wafeforms is {iwf}/{nwf}")
+    print(f"{name}: Number of waveforms is {iwf}/{nwf}")
     print(f"{name}: Number of writes is {nwri}")
     print(f"{name}: Finish time is {time.process_time() - t0 :9.3f} sec")
     print(f"{name}:      Generate: {sumtimg:9.3f} sec")
