@@ -39,14 +39,19 @@ def make_config(nwrk, node_memory, dsam =10, sexec='ht', nnod=0):
       node_memory = memory/node for wq [MB]
       dsam - Monitor sampling interval [sec]
     '''
+    wqopts = ''
+    if node_memory > 0:
+        wqopts += f" --memory={node_memory}"
+    if nwrk > 0:
+        wqopts += f" --cores={nwrk}"
     if sexec == 'wq':
         executor = parsl.WorkQueueExecutor(
-                       worker_options=f"--memory={node_memory}",
+                       worker_options=wqopts,
                        function_dir=get_function_dir(),
                    )
     elif sexec == 'ww':
         executor = parsl.WorkQueueExecutor(
-                       worker_options=f"--memory={node_memory}",
+                       worker_options=wqopts,
                        function_dir=get_function_dir(),
                        provider = parsl.providers.LocalProvider(init_blocks=0, min_blocks=0, max_blocks=0)
                    )
@@ -158,13 +163,15 @@ def parsltest(jobdesc, ttsk, mtsk, ntsk, sexec, nwrk, clean =False, twait =5, ds
     print(f"{myname}: Job type is {jobtype}.")
     print(f"{myname}: Job memory limit is {mtsk} GB.")
     print(f"{myname}: Number of workers: {nwrk}.")
-    node_memory = 100.0
+    use_nwrk_memory = False
+    node_memory = 0.0
     if sexec == 'wq':
-        node_memory = int(1024*mtsk*nwrk)
+        if use_nwrk_memory:
+            node_memory = int(1024*mtsk*nwrk)
         res_spec = {'cores': 1, 'memory': 1024*int(mtsk), 'disk': 1000}
         res_spec['running_time_min'] = ttsk*1.1
         print(f"{myname}: System memory limit: {node_memory} MB.")
-        print(f"{myname}: Resource spec: {res_spec}.")
+        print(f"{myname}: Task resource spec: {res_spec}.")
     print(f"{myname}: Monitor sampling time: {dsam} seconds.")
     print(f"{myname}: Executor: {sexec}.")
     print(f"{myname}: Number of nodes: {nnode}.")
@@ -209,6 +216,7 @@ def parsltest(jobdesc, ttsk, mtsk, ntsk, sexec, nwrk, clean =False, twait =5, ds
         doParslTracing = False
     while len(jobs):
         ijob = 0
+        nrun = 0
         while ijob < len(jobs):
             job = jobs[ijob]
             if job.done():
@@ -221,8 +229,9 @@ def parsltest(jobdesc, ttsk, mtsk, ntsk, sexec, nwrk, clean =False, twait =5, ds
                 jobsDone.append(job)
                 jobs.pop(ijob)
             else:
+                if job.task_status() == 'running': nrun += 1
                 ijob = ijob + 1
-        print(f"{myname}: {len(jobs):4} jobs remaining")
+        print(f"{myname}: {len(jobs):4} jobs remaining, {nrun} running")
         time.sleep(10)
     print(f"{myname}: All jobs complete.")
     time.sleep(twait)
@@ -244,10 +253,11 @@ def parsltest_from_string(sargs):
     Create a parsl test from a string made up for dash-separated fields:
     ifixw, ifixn or sleep - Job type
     ttsk - Average task run time [s]
-    mtsk - Task memory estimate [GB]
+    mtsk - Task memory usage [1 GB]
     wq, ww, ht, tp - Executor
     ntsk - Total # tasks to run
     nwrk - # concurrent tasks for ht or tp
+    dsam - 
     '''
     jtyp = None
     ttsk = None
