@@ -368,6 +368,49 @@ class MonDbReader:
         # set flag indicating tasks have been fixed.
         self.fixed.append('tasks')
 
+    def fix_try(self):
+        """
+        Transfer timestamps from the status table (one entry per try state) to new columns
+        in the try table.
+        """
+        myname = self.__class__.__name__ + "::fix_tasks"
+        if 'try' in self.fixed: return
+        ttry = self.table('try')
+        tsta = self.table('status')
+        # Map of new column named indexed by status lables.
+        ntry = len(ttry)
+        cnams = {
+          'pending':'status_pending',
+          'launched':'status_launched',
+          'running':'status_running',
+          'running_ended':'status_rundone',
+          'exec_done':'status_alldone',
+        }
+        snams = cnams.keys()
+        # Build arrays holding the times for each state.
+        tims = {}
+        tsstas = {}
+        for snam in snams:
+            tims[snam] = [None]*ntry
+            tsstas[snam] = tsta.query(f"task_status_name=='{snam}'")
+        itry = 0
+        for idx, row in ttry.iterrows():
+            sqry = f"run_idx=={row.run_idx} and task_id=={row.task_id} and try_id=={row.try_id}"
+            for snam in snams:
+                tsssta = tsstas[snam].query(sqry)
+                if len(tsssta) == 0:
+                    print(f"{myname}: WARNING: Not found in {snam} status table: {sqry}")
+                elif len(tsssta) > 1:
+                    print(f"{myname}: WARNING: Multiple matches found in {snam} status table: {sqry}")
+                else:
+                    tims[snam][itry] = tsssta.timestamp.iat[0]
+            itry += 1
+        # Insert the timestamp columns into the try table.
+        for snam in snams:
+            cnam = cnams[snam]
+            ttry[cnam] = tims[snam]
+        self.fixed.append('tasks')
+
     def taskproc(self, runidx, taskid, dodelta=True, build=True):
         """
         Return the taskproc table for the given run index and task ID.
@@ -602,6 +645,7 @@ class MonDbReader:
         self.fix_workflows()
         self.fix_times()
         self.fix_tasks()
+        self.fix_try()
         self.build_procsum(dodelta)
 
     def workflow_time_range(self, iwkf, unit='second'):

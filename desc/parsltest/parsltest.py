@@ -371,7 +371,7 @@ def main_parsltest_old():
     ttsk = 60.0
     nwrk = 4
     dsam = 10
-    mtsk = 10
+    mtsk = 1
     sexe = 'xx'
     nnod = 0
     if len(sys.argv) > 1:
