@@ -101,7 +101,7 @@ def mytsk(name, trun):
 @parsl.bash_app
 def mybash_sleep(name, trun, mtsk, outdir, ngen, stdout, stderr,
                 parsl_resource_specification={'cores': 1, 'memory': 1000, 'disk': 1000}):
-    scom = f"time sleep {trun}; echo Finished task {name} on $(hostname) at $(date)"
+    scom = f"echo Started task {name} on $(hostname) at $(date); time sleep {trun}; echo Finished task {name} on $(hostname) at $(date)"
     print(f"mybash_sleep: {scom}")
     return scom
 
