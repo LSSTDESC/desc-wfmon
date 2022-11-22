@@ -269,7 +269,7 @@ def parsltest_from_string(sargs):
     mtsk = 1
     ntsk = None
     sexe = None
-    nwrk = None
+    nwrk = 0
     dsam = 5
     nnod = 0
     emsgs = []
@@ -296,7 +296,7 @@ def parsltest_from_string(sargs):
     if ttsk is None: emsgs += ['Job run time must be provided']
     if ntsk is None: emsgs += ['Number of tasks must be provided']
     if sexe is None: emsgs += ['Executor must be provided']
-    if nwrk is None: emsgs += ['Number of workers/node must be provided']
+    if nwrk == 0 and sexe in ['wq', 'ht', 'tp']: emsgs += ['Number of workers/node must be provided']
     if len(emsgs):
         myname = 'parsltest'
         for emsg in emsgs:
