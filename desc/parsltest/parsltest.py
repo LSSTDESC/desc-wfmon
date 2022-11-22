@@ -166,13 +166,15 @@ def parsltest(tskdesc, ttsk, mtsk, ntsk, sexec, nwrk, clean =False, twait =5, ds
     print(f"{myname}: Number of workers: {nwrk}.")
     use_nwrk_memory = False
     node_memory = 0.0
-    if sexec == 'wq':
+    if sexec in ['wq', 'ww']:
         if use_nwrk_memory:
             node_memory = int(1024*mtsk*nwrk)
         res_spec = {'cores': 1, 'memory': 1024*int(mtsk), 'disk': 1000}
         res_spec['running_time_min'] = ttsk*1.1
         print(f"{myname}: System memory limit: {node_memory} MB.")
         print(f"{myname}: Task resource spec: {res_spec}.")
+    else:
+        print(f"({myname}: Not setting task resource specs for exector {sexec}.")
     print(f"{myname}: Monitor sampling time: {dsam} seconds.")
     print(f"{myname}: Executor: {sexec}.")
     print(f"{myname}: Number of nodes: {nnode}.")
