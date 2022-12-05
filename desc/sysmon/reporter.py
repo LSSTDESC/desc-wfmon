@@ -172,7 +172,12 @@ def reporter(fnam =Params.fnam, dt =Params.dt, check =Params.check, timeout =Par
             d['time'] = now
             d['cpu_count'] = psutil.cpu_count()
             d['cpu_percent'] = psutil.cpu_percent()
-            d['cpu_freq'] = psutil.cpu_freq().current
+            cpufreq = psutil.cpu_freq()
+            print(f"cpufreq: {cpufreq}")
+            if cpufreq is None:
+                d['cpu_freq'] = 0.0
+            else:
+                d['cpu_freq'] = cpufreq.current
             freqs = psutil.cpu_freq(True)
             # user, nice, system, idle, iowait, irq, softirq, steal, guest, guest_nice
             cpt = psutil.cpu_times()
