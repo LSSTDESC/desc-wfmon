@@ -219,13 +219,18 @@ def parsltest(tskdesc, ttsk, mtsk, ntsk, sexec, nwrk, clean =False, twait =5, ds
         print(f"Writing parsl stats.")
         parsl.trace.output_event_stats()
         doParslTracing = False
+    donetaskcounts = {}
     while len(tsks):
         itsk = 0
         nrun = 0
+        taskcounts = {}
         while itsk < len(tsks):
             tsk = tsks[itsk]
+            sstat = tsk.task_status()
             if tsk.done():
-                #print(f"{myname}: Completed: {tsk}")
+                if sstat not in donetaskcounts:
+                    donetaskcounts[sstat] = 0
+                donetaskcounts[sstat] += 1
                 e = tsk.exception()
                 if e is None:
                     print(f"{myname}: Job result: {tsk.result()}")
@@ -234,11 +239,33 @@ def parsltest(tskdesc, ttsk, mtsk, ntsk, sexec, nwrk, clean =False, twait =5, ds
                 tsksDone.append(tsk)
                 tsks.pop(itsk)
             else:
-                if tsk.task_status() == 'running': nrun += 1
-                itsk = itsk + 1
-        print(f"{myname}: {len(tsks):4} tsks remaining, {nrun} running")
+                if sstat not in taskcounts:
+                    taskcounts[sstat] = 0
+                taskcounts[sstat] += 1
+                itsk += 1
+        line = f"{len(tsks):4}/{ntsk} tasks remaining"
+        sep = ':'
+        for sstat in donetaskcounts:
+            line += f"{sep} {donetaskcounts[sstat]:4} {sstat}"
+            sep = ','
+        if sep == ',': sep = ';'
+        for sstat in taskcounts:
+            line += f"{sep} {taskcounts[sstat]:4} {sstat}"
+            sep = ','
+        print(f"{myname}: {line}")
+        sout = open('current-status.txt', 'w')
+        sout.write(line + '\n')
+        sout.close()
         time.sleep(10)
-    print(f"{myname}: All tsks complete.")
+    line = f"All {ntsk} tasks complete"
+    sep = ':'
+    for sstat in donetaskcounts:
+        line += f"{sep} {donetaskcounts[sstat]:4} {sstat}"
+        sep = ','
+    print(f"{myname}: {line}")
+    sout = open('current-status.txt', 'w')
+    sout.write(line + '\n')
+    sout.close()
     time.sleep(twait)
     if showio: print(f"{myname}: Disk I/O: {psutil.disk_io_counters()}")
     if showio: print(f"{myname}: Netw I/O: {psutil.net_io_counters()}")

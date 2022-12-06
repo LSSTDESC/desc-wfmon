@@ -173,7 +173,7 @@ def reporter(fnam =Params.fnam, dt =Params.dt, check =Params.check, timeout =Par
             d['cpu_count'] = psutil.cpu_count()
             d['cpu_percent'] = psutil.cpu_percent()
             cpufreq = psutil.cpu_freq()
-            print(f"cpufreq: {cpufreq}")
+            #print(f"cpufreq: {cpufreq}")
             if cpufreq is None:
                 d['cpu_freq'] = 0.0
             else:
