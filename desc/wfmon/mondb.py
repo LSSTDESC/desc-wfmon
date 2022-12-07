@@ -394,6 +394,7 @@ class MonDbReader:
             tims[snam] = [None]*ntry
             tsstas[snam] = tsta.query(f"task_status_name=='{snam}'")
         itry = 0
+        not_found_max = 20
         not_found_count = 0
         not_found_suppressed = 0
         for idx, row in ttry.iterrows():
@@ -402,17 +403,19 @@ class MonDbReader:
                 tsssta = tsstas[snam].query(sqry)
                 if len(tsssta) == 0:
                     not_found_count += 1
-                    if not_found_count < 20:
+                    if not_found_count < not_found_max:
                         print(f"{myname}: WARNING: Not found in {snam} status table: {sqry}")
                     else:
                         not_found_suppressed += 1
+                        if not_found_count ==not_found_max:
+                            print(f"{myname}: WARNING: Suppressing not found in status table errors.")
                 elif len(tsssta) > 1:
                     print(f"{myname}: WARNING: Multiple matches found in {snam} status table: {sqry}")
                 else:
                     tims[snam][itry] = tsssta.timestamp.iat[0]
             itry += 1
         if not_found_suppressed:
-            print(f"{myname}: WARNING: Suppressed {not_found_suppressed}/(not_found_count} not found in status table errors.")
+            print(f"{myname}: WARNING: Suppressed {not_found_suppressed}/{not_found_count} not found in status table errors.")
         # Insert the timestamp columns into the try table.
         for snam in snams:
             cnam = cnams[snam]
