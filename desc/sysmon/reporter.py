@@ -114,7 +114,8 @@ def reporter(fnam =Params.fnam, dt =Params.dt, check =Params.check, timeout =Par
     if thr:
         if dbg > 0: print(f"{myname}: Starting thread.", file=fout)
         args=(fnam, dt, check, timeout, subcom, dbg, False, log, frqfnam, )
-        t = threading.Thread(target=reporter, args=args)
+        # Flag daemon so this thread will exit if the main thread crashes.
+        t = threading.Thread(target=reporter, args=args, daemon=True)
         t.start()
         return t
     if dbg > 0:
