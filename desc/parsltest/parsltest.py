@@ -50,12 +50,12 @@ def make_config(nwrk, node_memory, dsam =10, sexec='ht', nnod=0):
     if sexec == 'wq':
         executor = parsl.WorkQueueExecutor(
                        worker_options=wqopts,
-                       function_dir=get_function_dir(),
+                       #function_dir=get_function_dir(),
                    )
     elif sexec == 'ww':
         executor = parsl.WorkQueueExecutor(
                        worker_options=wqopts,
-                       function_dir=get_function_dir(),
+                       #function_dir=get_function_dir(),
                        provider = parsl.providers.LocalProvider(init_blocks=0, min_blocks=0, max_blocks=0),
                        radio_mode = 'results',
                    )
