@@ -15,10 +15,13 @@ import random
 import faulthandler
 import signal
 
-# Return the parsl WorQue fundtion dir.
+# Return the parsl WorQueue function dir.
 # Making this local can improve the launch rate.
 def get_function_dir():
-  nam = f"/tmp/{os.environ.get('USER')}/parsl"       # for 1.3.0-dev+desc-2022.09.26b only e.g. use '/tmp'
+  uid = os.getuid()
+  unam = pwd.getpwuid(uid).pw_name
+  if unam is None: unam = 'unknown'
+  nam = f"/tmp/{unam}/parsl"       # for 1.3.0-dev+desc-2022.09.26b only e.g. use '/tmp'
   if not os.path.exists(nam):
       os.makedirs(nam)
   return nam
