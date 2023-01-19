@@ -82,7 +82,7 @@ def make_config(nwrk, node_memory, dsam =10, sexec='ht', nnod=0):
        executors=[ executor ],
        monitoring=parsl.monitoring.monitoring.MonitoringHub(
            hub_address=parsl.addresses.address_by_hostname(),
-           hub_port=55055,
+           #hub_port=55055,
            monitoring_debug=False,
            resource_monitoring_enabled=enabled,
            resource_monitoring_interval=interval,
