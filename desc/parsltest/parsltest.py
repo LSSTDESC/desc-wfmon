@@ -36,13 +36,14 @@ def make_config(nwrk, node_memory, dsam =10, sexec='ht', nnod=0):
       sexec - specifies the executor
         ht = HighThroughput
         wq = WorkQueue
-        ww = WorkQueue waiting for workers (start with work_queue_worker <host> 9123)
+        ww = WorkQueue waiting for workers (start with work_queue_worker <host> <port>)
         tp = Threadpool
       nwrk = # workers = target # concurrent tasks/node for ht and tp
       node_memory = memory/node for wq [MB]
       dsam - Monitor sampling interval [sec]
     '''
     wqopts = ''
+    worker_port = 0
     if node_memory > 0:
         wqopts += f" --memory={node_memory}"
     if nwrk > 0:
@@ -50,11 +51,13 @@ def make_config(nwrk, node_memory, dsam =10, sexec='ht', nnod=0):
     if sexec == 'wq':
         executor = parsl.WorkQueueExecutor(
                        worker_options=wqopts,
+                       port=worker_port,
                        #function_dir=get_function_dir(),
                    )
     elif sexec == 'ww':
         executor = parsl.WorkQueueExecutor(
                        worker_options=wqopts,
+                       port=worker_port,
                        #function_dir=get_function_dir(),
                        provider = parsl.providers.LocalProvider(init_blocks=0, min_blocks=0, max_blocks=0),
                        radio_mode = 'results',
