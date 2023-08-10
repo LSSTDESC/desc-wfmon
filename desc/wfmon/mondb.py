@@ -91,8 +91,12 @@ class MonDbReader:
                    print(f"{myname}: ERROR: Workflow table has multiple runs.")
                    print(f"{myname}: Please specify run_id from the following:")
                    print(f"{myname}: {'run_id':>{wr}}  {'workflow_name':>{wn}}  {'workflow_version':>{wv}}")
+                   print(f"{myname}: The full list is at self.select_run_ids")
+                   self.select_run_ids = []
                    for idx, row in wkf.iterrows():
-                       print(f"{myname}: {row['run_id']:>{wr}}  {row['workflow_name']:>{wn}}  {row['workflow_version']:>{wv}}")
+                       run_id = row['run_id']
+                       print(f"{myname}: {run_id:>{wr}}  {row['workflow_name']:>{wn}}  {row['workflow_version']:>{wv}}")
+                       self.select_run_ids.append(run_id)
                    return
            tnams = list(pandas.read_sql_query("select name from sqlite_master where type='table'", self._con)['name'])
            for tnam in tnams:
