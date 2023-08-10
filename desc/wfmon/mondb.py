@@ -131,6 +131,13 @@ class MonDbReader:
         if type(itim) is float: fmt = fmt + '.%f'
         return datetime.datetime.fromtimestamp(itim).strftime(fmt)
 
+    def latest_run_id(self):
+        """Return the most recent run_id if there is more than one."""
+        for rids in [self.select_run_ids, self.run_ids]:
+            if rids is None: continue
+            if len(rids): return rids[-1]
+        return None
+
     def table_names(self):
         """Return the table names."""
         return list(self._tables.keys())
