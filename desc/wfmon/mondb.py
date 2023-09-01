@@ -52,6 +52,7 @@ class MonDbReader:
         self.nwarnNoOffset = 0
         self._chain_prompt_count = None # Number of worker chains that start before any tries end
         self._chain_late_count = None   # Number of worker chains that start after a try has ended
+        self.select_run_ids = []
 
         """Construct from the path to the monitoring DB file [monitoring.db]."""
         if len(filename): self.filename = filename
