@@ -80,25 +80,28 @@ class MonDbReader:
                return None
            rqry = '*'
            if run_id is None:
+               self.select_run_ids = []
                wkf = pandas.read_sql_query(f"""select * from workflow""", self._con)
                nwk = len(wkf)
                if nwk == 0:
                    print(f"{myname}: ERROR: No entries found in workflow table.")
                    return
-               elif nwk > 1:
+               elif nwk >= 1:
                    wr = wkf.run_id.str.len().max()
                    wn = wkf.workflow_name.str.len().max()
                    wv = wkf.workflow_version.str.len().max()
-                   print(f"{myname}: ERROR: Workflow table has multiple runs.")
-                   print(f"{myname}: Please specify run_id from the following:")
-                   print(f"{myname}: {'run_id':>{wr}}  {'workflow_name':>{wn}}  {'workflow_version':>{wv}}")
-                   self.select_run_ids = []
+                   if nwk > 1:
+                       print(f"{myname}: ERROR: Workflow table has multiple runs.")
+                       print(f"{myname}: Please specify run_id from the following:")
+                       print(f"{myname}: {'run_id':>{wr}}  {'workflow_name':>{wn}}  {'workflow_version':>{wv}}")
                    for idx, row in wkf.iterrows():
                        run_id = row['run_id']
-                       print(f"{myname}: {run_id:>{wr}}  {row['workflow_name']:>{wn}}  {row['workflow_version']:>{wv}}")
                        self.select_run_ids.append(run_id)
-                   print(f"{myname}: The full list is at self.select_run_ids")
-                   return
+                       if nwk > 1:
+                           print(f"{myname}: {run_id:>{wr}}  {row['workflow_name']:>{wn}}  {row['workflow_version']:>{wv}}")
+                   if nwk > 1:
+                       print(f"{myname}: The full list is at self.select_run_ids")
+                       return
            tnams = list(pandas.read_sql_query("select name from sqlite_master where type='table'", self._con)['name'])
            for tnam in tnams:
                qry = f"select * from {tnam}"
