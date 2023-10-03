@@ -4,7 +4,7 @@ import sys
 import os
 import shutil
 
-__version__  = '0.0.1'
+__version__  = '0.0.2'
 
 def install_dir(use=True, rem=False):
     """
@@ -44,7 +44,8 @@ def install(pkgname, pkgdir='', opts='', rem=False):
     insdir = install_dir(rem=rem)
     print(f"Installing {pkgpath} at {insdir}")
     #opt = '--upgrade'
-    com = f"PIP_PREFIX= {sys.executable} -m pip install --no-deps -t {insdir} {opts} {pkgpath}"
+    #com = f"PIP_PREFIX= {sys.executable} -m pip install --no-deps -t {insdir} {opts} {pkgpath}"
+    com = f"PIP_PREFIX= {sys.executable} -m pip install -t {insdir} {opts} {pkgpath}"
     os.system(com)
     # Better for jupyter?
     #%pip install -t {insdir} {opts} {pkgpath}
