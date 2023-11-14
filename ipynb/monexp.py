@@ -8,4 +8,5 @@ class monexp:
     iosummax = 1200
     tlatencymax = 10
     tlatrunmax = 50
+    t0_source = 'config'
 
