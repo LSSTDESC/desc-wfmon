@@ -73,6 +73,7 @@ class PerfStatLogReader:
                     print(f"{myname} {slab}: {'*' if inperf else ' '}  {nlin:5d}: {line}")
                 nlin = nlin + 1
                 if inperf:
+                    #print(f"********** {line}")
                     sublines = line.split('#')
                     if len(sublines) < 1:
                         if len(sublines) == 1:
@@ -107,8 +108,11 @@ class PerfStatLogReader:
                             if snam in data:
                                 print(f"{myname} {slab}: WARNING: Overwriting duplicate value for {snam}")
                             data[snam] = val
+                            # If the field name is sys, assume this is the end of the perstat report.
+                            if snam == 'sys': inperf = False
                 elif self.flglin in line:
-                     inperf = done == False
+                    chkpat = 'Performance counter stats for'
+                    if line[0:len(chkpat)] == chkpat: inperf = True
         if dbg >= 1:
             print(f"{myname} {slab}: Read {nlin} lines and found {nprf} metrics ==> {len(data)} columns")
         if nprf > 0:
@@ -177,6 +181,7 @@ class PerfStatLogReader:
             indict['tstart'] = ttrm.task_try_time_running.iloc[0]
             indict['tstop'] = ttrm.task_try_time_returned.iloc[0]
             fnam = dbr.task_logs[tid]
+            for iii in [1]:
             try:
                 if not os.path.exists(fnam):
                     if dbg >= 1:
@@ -194,7 +199,7 @@ class PerfStatLogReader:
                         nkeep = nkeep + 1
             except:
                 if fnam is not None:
-                    print(f"{myname}: Skipping  task {tid} with invalid log path: {fnam}")
+                    print(f"{myname}: Skipping task {tid} with perstat parse failure in log {fnam}")
                 nskip = nskip + 1
         if dbg >= 1:
             print(f"{myname}: nskip = {nskip}")
