@@ -181,7 +181,6 @@ class PerfStatLogReader:
             indict['tstart'] = ttrm.task_try_time_running.iloc[0]
             indict['tstop'] = ttrm.task_try_time_returned.iloc[0]
             fnam = dbr.task_logs[tid]
-            for iii in [1]:
             try:
                 if not os.path.exists(fnam):
                     if dbg >= 1:
