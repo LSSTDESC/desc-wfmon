@@ -1,12 +1,11 @@
 class monexp:
     tmin = 0
-    tmax = 30
+    tmax = 60
     run_id = None
-    taskrunmax = 105
+    taskrunmax = 1.02
     taskcount_interval = 1
     tzoff = 0*3600
     iosummax = 1200
     tlatencymax = 10
     tlatrunmax = 50
     t0_source = 'config'
-
