@@ -29,6 +29,7 @@ class PerfStatLogReader:
         self.nval = 0          # # entries in the table
         self.dict = collections.OrderedDict()
         self._table = pandas.DataFrame()
+        self.allow_time_only = True  # Allow time info to be read before or without perfstat data.
 
     def table(self):
         """
@@ -72,6 +73,10 @@ class PerfStatLogReader:
                 if dbg >= 4:
                     print(f"{myname} {slab}: {'*' if inperf else ' '}  {nlin:5d}: {line}")
                 nlin = nlin + 1
+                if self.allow_time_only and not inperf and line[0:6] == 'real\t ':
+                    if dbg >= 1:
+                         print(f"{myname} {slab}: Found time info before or without perfstat data.")
+                    inperf = True
                 if inperf:
                     #print(f"********** {line}")
                     sublines = line.split('#')
