@@ -215,9 +215,10 @@ class MonDbReader:
         nrid = len(self.run_ids)
         runIdToIndex = {}
         for idx in range(nrid):
-            runIdToIndex[self.run_ids[idx]] = idx
+            runIdToIndex[self.run_ids[idx]] = str(idx)
         for tnam in self.table_names():
             tab = self.table(tnam)
+            if 'run_id' not in tab.columns: continue
             nrow = len(tab)
             # Remove rows with run_id not in task.
             qry = col + ' in ' + str(self.run_ids)
@@ -226,10 +227,8 @@ class MonDbReader:
             if nrem > 0:
                 self.remove_counts[tnam] += nrem
                 tab.reset_index(inplace=True)
-            tab[col].replace(runIdToIndex, inplace=True)
-            tab.rename(columns={'run_id':'run_idx'}, inplace=True)
-            #if tnam == 'workflow' and 'index' in tab.columns.values.tolist():
-            #    tab['index'] = tab[col]
+            tab['run_idx'] = pandas.to_numeric(tab[col].replace(runIdToIndex))
+            tab.drop(columns=[col], inplace=True)
         self.fixed.append('runs')
 
     def fix_workflows(self):
@@ -244,10 +243,10 @@ class MonDbReader:
         nameToIdx = {}
         for wnam in tab[col]:
             if wnam not in self.workflow_names:
-                nameToIdx[wnam] = len(self.workflow_names)
+                nameToIdx[wnam] = str(len(self.workflow_names))
                 self.workflow_names.append(wnam)
-        tab[col].replace(nameToIdx, inplace=True)
-        tab.rename(columns={col:'wf_idx'}, inplace=True)
+        tab['wf_idx'] = pandas.to_numeric(tab[col].replace(nameToIdx))
+        tab.drop(columns=[col], inplace=True)
         # Drop the workflow version. It is just the start time.
         col = 'workflow_version'
         if col in tab.columns.values.tolist():
@@ -358,7 +357,7 @@ class MonDbReader:
         # In 'task' replace column task_func_name with task_idx
         cnam = 'task_func_name'
         icol = tab.columns.get_loc(cnam)
-        tab.insert(icol, 'task_idx', task_idxs)
+        tab.insert(icol, 'task_idx', pandas.Series(task_idxs))
         tab.drop(labels=cnam, axis=1, inplace=True)
         # Add 'run_idx' to all the other tables thaat have 'run_id'.
         for tnam in self.table_names():
@@ -374,10 +373,10 @@ class MonDbReader:
                     if task_id < len(self.task_index[run_idx]):
                         vals.append(self.task_index[run_idx][task_id])
                     else:
-                        vals.append(-1)
+                        vals.append(-1.0)
                         print(f"({myname}: WARNING: Ignoring unknown task {task_id} in table {tnam}")
                 icol = tab.columns.get_loc('task_id') + 1
-                tab.insert(icol, 'task_idx', vals)
+                tab.insert(icol, 'task_idx', pandas.Series(vals))
             else:
                 if self.dbg > 2: print(f"""{myname}: NOT adding task_id in table {tnam}""")
         # set flag indicating tasks have been fixed.
@@ -715,8 +714,8 @@ class MonDbReader:
                 t2 = self.workflow_time_ranges[irun][1]
                 toff = t1
                 ntim = int((t2-t1)/delt) + 1
-                empty_count = pandas.Series(ntim*[0], name='time')  # When task does not have time for a state, all counts are zero
-                df = pandas.DataFrame(0, index=range(ntim), columns=cnams)
+                empty_count = pandas.Series(ntim*[0.0], name='time')  # When task does not have time for a state, all counts are zero
+                df = pandas.DataFrame(0, index=range(ntim), columns=cnams, dtype=numpy.float64)
                 df['time'] = numpy.arange(t1-toff, t2-toff+10*delt, delt)[0:ntim]
                 tcs.append({})
                 for snam in snams:
@@ -736,7 +735,7 @@ class MonDbReader:
                         count = empty_count
                     else:
                         time = rawtime - t1
-                        count = ((mytcs['time'] + delt - time)/delt).clip(0,1)
+                        count = ((mytcs['time'] + delt - time)/delt).clip(0.0,1.0)
                     if count.isnull().sum():
                         print(f"{myname}: ERROR: Skipping task {row.task_id} {snam} with nan values: count = \n{count}")
                         print(mytcs)
@@ -749,6 +748,10 @@ class MonDbReader:
                         print(f"Row: \n{row}")
                         print('=======================================')
                     else:
+                        if mytcs.loc[:, cnam_tcs].dtype != count.dtype:
+                            print(f"{myname}: WARNING: Type mismatch for column {cnam_tcs}: {mytcs.loc[:, cnam_tcs].dtype} != {count.dtype}")
+                            print(mytcs)
+                            mytcs[cnam_tcs].apply(numpy.float64)
                         mytcs.loc[:, cnam_tcs] += count
             # Add a column with sum over tasks.
             for irun in range(nrun):
